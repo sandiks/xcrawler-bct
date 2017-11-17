@@ -13,11 +13,12 @@ class Time
   end
 end
 
-def download_page(url, encoding="", use_tor = false)#win1251, utf-8, ISO-8859-1 
+def download_page(url, direct = true)#win1251, utf-8, ISO-8859-1 
   headers = { 'User-Agent' => 'Windows / Firefox 32: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:26.0) Gecko/20100101 Firefox/32.0'}
-
-  if use_tor
-    #p "dowload through tor"
+  encoding=""
+  
+  if !direct
+    p "dowload through tor url #{url}"
     browser = Mechanize.new
     browser.agent.set_socks('localhost', 9050)
     resp =browser.get(url,headers).body

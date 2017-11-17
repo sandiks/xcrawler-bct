@@ -28,7 +28,7 @@ when 'check_forums';    BCTalkParser.check_forums(fid) #pages_back
 when 'selected';        BCTalkParser.check_selected_threads
 
 when 'tstat';                 BCTalkParserAdv.load_thread_responses_to_stat_thread(fid, HOURS_BACK,1)
-when 'tstat_posts';           BCTalkParserAdv.load_threads_with_max_responses_for_last12h(fid, HOURS_BACK)
+when 'tstat_posts';           BCTalkParserAdv.load_thread_posts_with_max_responses_in_interval(fid, HOURS_BACK)
 when 'tstat_all';             BCTalkParserAdv.load_list_forums_pages_threads_responses_to_stat_thread(arr_forums, HOURS_BACK)
 when 'tstat_rep';             BctReport.forum_threads_with_max_answers(fid, HOURS_BACK,'f') 
 when 'tstat_all_rep';         BctReport.list_forum_threads_with_max_answers(arr_forums,HOURS_BACK,'f') 

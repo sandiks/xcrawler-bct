@@ -42,9 +42,9 @@ class BCTalkParser
 
     @@fid=fid
     pp = (pg>1 ? "#{(pg-1)*40}" : "0")
-    p link = "https://bitcointalk.org/index.php?board=#{fid}.#{pp}"
+    link = "https://bitcointalk.org/index.php?board=#{fid}.#{pp}"
 
-    page = Nokogiri::HTML(download_page(link))
+    page = Nokogiri::HTML(download_page(link,false))
     #page = Nokogiri::HTML(File.open("btctalk128.html"))
 
     threads = page.css("div.tborder table tr")
@@ -106,6 +106,7 @@ class BCTalkParser
 
       #old_resps = old_thread_resps[tid]
 
+##calc how many pages_back neeed download for current thread 
       downl_pages=calc_arr_downl_pages(tid,lpage,lcount,@@from_date).take(3)
 
       res=[]
@@ -115,6 +116,7 @@ class BCTalkParser
         
         loop do
           begin
+            ## load page with post for [tid,pg]
             data = parse_thread_page(tid, pp[0]) 
             stars += data[:stars]||0
             break
@@ -139,7 +141,7 @@ class BCTalkParser
 
   def self.get_diff
      dd = {72=> 3, 159=>3, 90=>2}
-     dd[@@fid]||3
+     dd[@@fid]||2
   end
 
   def self.calc_arr_downl_pages(tid, lp_num, lp_post_count, start_date)
@@ -186,7 +188,7 @@ class BCTalkParser
 
   def self.parse_thread_page(tid, page=1)
     return if page<1
-
+    
     link = get_link(tid,page)
     fname = "html/bctalk-tid#{tid}-p#{page}.html"
     page_html = Nokogiri::HTML(download_page(link))
@@ -233,6 +235,7 @@ class BCTalkParser
         link = td1.css('a')[0]
         url = link["href"]
         addedby = link.text.strip
+        activity= td1.text.strip.scan(/Activity:\s+\d+/).join().sub('Activity:','').to_i
         addeduid = url.split('=').last.to_i
         rank = detect_user_rank(td1)
 
@@ -285,6 +288,8 @@ class BCTalkParser
         body: body,
         addeduid:addeduid,
         addedby:addedby,
+        addedrank:rank,
+        activity:activity,
         addeddate: post_date,
         pnum:page
       }
@@ -310,7 +315,7 @@ class BCTalkParser
     #p "[ parse_thread_page_html] tid:#{tid} pg:#{page} first:#{first_date.strftime("%F %H:%M")}"
 
     #{first_post_date: first_post_date} 
-    {stars: more3stars} 
+    {stars: more3stars, first_post_date:first_post_date} 
   end
 
   ##11-legendary

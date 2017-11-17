@@ -22,6 +22,8 @@ class BctReport
 
   end
   
+  THREADS_ANALZ_NUM=15
+
   def self.forum_threads_with_max_answers(fid, time =24, type='f')
     from=date_now(time)
     to=date_now(0)
@@ -29,7 +31,7 @@ class BctReport
     title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
     threads_titles = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :title)
 
-    stat = DB[:stat_threads].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
+    stat = DB[:threads_stat].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
     .select_map([:tid,:responses,:last_post_date])
 
     ##generate
@@ -47,18 +49,16 @@ class BctReport
     max_resps_threads = stat.group_by{|h| h[0]}
     .select{|k,v| v.size>1}
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax; dd[1]-dd[0] }
-    .reverse.take(45)
+    .reverse.take(15)
 
     max_resps_threads.each do |tid, tt|
 
-      if false
-        ranks = DB[:posts].join(:users, :uid=>:posts__addeduid)
-        .filter( Sequel.lit("posts.siteid=? and posts.tid=? and addeddate > ?", SID, tid, from) )
-        .order(:addeddate)
-        .select_map(:rank)
+      if true
+        ranks = DB[:posts].filter( Sequel.lit("siteid=? and tid=? and addeddate > ?", SID, tid, from) )
+        .order(:addeddate).select_map(:addedrank)
 
         ranks_gr = ranks.group_by{|x| (x||1)}.map { |k,v| [k,v.size]}.to_h
-        rank_info = [1,2,3,4,5,11].map{|x|  "#{x==11? 'legend': 'r'+x.to_s}-#{ranks_gr[x]||0}"}.join(' ')
+        rank_info = [1,2,3,4,5,11].map{|x|  "#{x==11? 'legend': ('rank(%s)' % x)}-#{ranks_gr[x]||0} "}.join(' ')
       end
 
       resps_minmax=tt.map { |el| el[1]  }.minmax
@@ -66,7 +66,10 @@ class BctReport
       page_and_num = PageUtil.calc_last_page(resps_minmax[1]+1,20)
       lpage = (page_and_num[0]-1)*40 rescue 0      
       url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
-      out<< "responses: #{ resps_minmax[1]-resps_minmax[0]} #{rank_info} #{url}    #{threads_titles[tid]} "
+      out<< "responses: #{ resps_minmax[1]-resps_minmax[0]} "
+      out<< "#{rank_info}"
+      out<< "#{url}    #{threads_titles[tid]}"
+      out<< ""
     end
     out<<"----------"
     report_name = is_forum ? "forums_thread_f" : "forums_thread_t" 
@@ -75,6 +78,7 @@ class BctReport
     File.write(fpath, out.join("\n"), mode: 'a')
 
   end
+
 
 ################## ----------------------------------
   def self.gen_threads_with_stars_users(fid, type='f', time =12)

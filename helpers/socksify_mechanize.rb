@@ -1,5 +1,6 @@
 require "socksify"
 require 'socksify/http'
+require 'mechanize'
 
 # Mechanize: call @agent.set_socks(addr, port) before using
 # any of it's methods; it might be working in other cases,

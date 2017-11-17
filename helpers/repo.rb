@@ -6,7 +6,7 @@ Sequel.datetime_class = DateTime
 class Repo
 
   #DB = Sequel.connect('postgres://postgres:12345@localhost:5432/fbot')
-  DB = Sequel.connect(:adapter => 'mysql2',:host => 'localhost',:database => 'fbot',:user => 'root')
+  DB = Sequel.connect(:adapter => 'mysql2',:host => 'localhost',:database => 'bittalk',:user => 'root')
 
   def self.get_db
     DB
@@ -161,7 +161,7 @@ class Repo
 
     inserted=0
     DB.transaction do
-      exist = DB[:stat_threads].filter(fid: fid).to_hash(:tid, :responses)
+      exist = DB[:threads_stat].filter(fid: fid).to_hash(:tid, :responses)
       thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
 
       fp_threads.each do |tt|
@@ -172,7 +172,7 @@ class Repo
           rr = {sid:sid, fid:tt[:fid], tid:tid, responses:tt[:responses],
             last_post_date:tt[:updated], parsed_at:datetime_now } 
             
-          DB[:stat_threads].insert(rr)
+          DB[:threads_stat].insert(rr)
           inserted+=1
         else
           #p "#{tt[:tid]} exist with same responses #{tt[:responses]}"
