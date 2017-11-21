@@ -18,7 +18,7 @@ def download_page(url, direct = true)#win1251, utf-8, ISO-8859-1
   encoding=""
   
   if !direct
-    p "dowload through tor url #{url}"
+    p "download-tor url #{url}"
     browser = Mechanize.new
     browser.agent.set_socks('localhost', 9050)
     resp =browser.get(url,headers).body

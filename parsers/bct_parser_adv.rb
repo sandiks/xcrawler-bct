@@ -55,7 +55,7 @@ class BCTalkParserAdv
     
     
     finish = false
-    start_page.upto(start_page+40) do |pg|
+    start_page.upto(start_page+80) do |pg|
         break if finish
         next if pg<1
         
@@ -74,7 +74,7 @@ class BCTalkParserAdv
 
   end
 
-  THREADS_ANALZ_NUM=15
+  THREADS_ANALZ_NUM=25
 
 
   ## read from "threads_stat" table and download thread posts for last 3 pages 
@@ -86,17 +86,17 @@ class BCTalkParserAdv
     from=date_now(h_back)
     BCTalkParser.class_variable_set(:@@from_date, from)
 
-    p "load_forumPage_threads_from0_n3  fid:#{fid} h_back:#{h_back} start_from:#{from.strftime("%F %H:%M:%S")}"
+    p " --load_thread_posts_with_max_responses_in_interval fid:#{fid} h_back:#{h_back} start_from:#{from.strftime("%F %H:%M:%S")}"
     to=date_now(0)
 
-    thread_stats = DB[:threads_stat].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
     .select_map([:tid,:responses,:last_post_date])
 
     list_threads = []
     start_date = date_now(12)
 
     ########analz
-    sorted_thread_stats = thread_stats.group_by{|dd| dd[0]}
+    sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
     .select{|k,v| v.size>1}
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax; dd[1]-dd[0] }
     .reverse.take(THREADS_ANALZ_NUM)
@@ -106,6 +106,7 @@ class BCTalkParserAdv
       
       tid = rr[0]
       resps = rr[1]
+      #next if tid!=2198936
 
       resps_minmax=resps.map { |el| el[1]  }.minmax
 
@@ -117,34 +118,49 @@ class BCTalkParserAdv
       url = url_templ % [tid,(lpage-1)*40]
       
       downl_pages=BCTalkParser.calc_arr_downl_pages(tid,lpage,lcount, BCTalkParser.from_date).take(10)
-      #p "[#{idx}] tid #{tid} downl_pages: #{downl_pages}"
       
-      res=[]
-      stars=0
+      downloaded_pages=[]
+      
+      ranks_stat_all=Hash.new(0)
       downl_pages.each do |pp| 
-        res<<pp[0]
+        downloaded_pages<<pp[0]
         begin
           data = BCTalkParser.set_opt({rank:1}).parse_thread_page(tid, pp[0]) 
-          stars += data[:stars]||0
+          
+          ranks_stat= data[:stat].group_by{|x| x}.map{|k,vv| [k,vv.size]}.to_h
+          [1,2,3,4,5,11].each{|x| ranks_stat_all[x]+= (ranks_stat[x]||0)}
+            
           fpdate = data[:first_post_date]
-          #p "[#{idx}] tid pg [#{tid} #{pp[0]}] stars:#{stars} first date:#{fpdate.strftime("%F %H:%M:%S")}"
           break if  fpdate<from
 
         rescue =>ex
+          #puts ex.backtrace
+          p "-------------------"
           p "--err tid #{tid} pg #{pp} --#{ex}"
         end
       end
+
+      if ranks_stat_all
+        rr={
+          fid:fid, tid:tid, description:"downloaded_pages #{downloaded_pages}" ,
+          start_date:from, end_date:to, added: date_now, last_page:lpage,
+          r1_count:ranks_stat_all[1],r2_count:ranks_stat_all[2],
+          r3_count:ranks_stat_all[3],r4_count:ranks_stat_all[4],
+          r5_count:ranks_stat_all[5],r11_count:ranks_stat_all[11],
+        }
+        DB[:threads_stat].insert(rr)
+      end
+
+      planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
       
-      planned_str=downl_pages.map { |pp| "<#{pp[0]}*#{pp[1]}>" }.join(', ')
-      
-      p "[[#{idx}] load_thr #{tid} last pg,count: #{page_and_num}".ljust(55)+
-      "planned:#{planned_str.ljust(40)}  down:#{res} stars:#{stars}" if downl_pages.size>0     
+      p "[[#{idx}] load_thr #{tid} last pg,count: #{page_and_num}".ljust(50)+
+      "planned:#{planned_str.ljust(40)}  down:#{downloaded_pages} ranks_stat_all: #{ranks_stat_all}" if downl_pages.size>0     
 
     end
 
   end
 
-  def self.load_only_top10_post_in_thread(tid, downl_rank=4)
+  def self.load_only_top10_post_in_thread(tid, downl_rank=4) ## for site, show when you click 'post' button
 
       responses= DB[:threads].filter(siteid:SID, tid: tid).select_map(:responses).first
       tpages = DB[:tpages].filter(Sequel.lit("siteid=? and tid=?", SID, tid)).to_hash(:page,:postcount)

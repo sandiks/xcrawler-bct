@@ -12,8 +12,11 @@ class Repo
     DB
   end
 
-  def self.datetime_now
-    DateTime.now.new_offset(3/24.0)
+  def self.datetime_now(sid=0)
+    case sid
+     when 0; DateTime.now.new_offset(3/24.0)
+     when 9; DateTime.now.new_offset(0/24.0)
+    end
   end
 
   def self.get_forum_name(fid,sid=0)
@@ -161,7 +164,7 @@ class Repo
 
     inserted=0
     DB.transaction do
-      exist = DB[:threads_stat].filter(fid: fid).to_hash(:tid, :responses)
+      exist = DB[:threads_responses].filter(fid: fid).to_hash(:tid, :responses)
       thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
 
       fp_threads.each do |tt|
@@ -170,9 +173,9 @@ class Repo
 
         if exist[tt[:tid]] != tt[:responses]
           rr = {sid:sid, fid:tt[:fid], tid:tid, responses:tt[:responses],
-            last_post_date:tt[:updated], parsed_at:datetime_now } 
+            last_post_date:tt[:updated], parsed_at:datetime_now(sid) } 
             
-          DB[:threads_stat].insert(rr)
+          DB[:threads_responses].insert(rr)
           inserted+=1
         else
           #p "#{tt[:tid]} exist with same responses #{tt[:responses]}"

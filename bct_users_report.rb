@@ -5,79 +5,13 @@ require_relative  'helpers/page_utils'
 Sequel.split_symbols = true
 
 
-class BctReport
+class BctUsersReport
   DB = Repo.get_db
   SID = 9
   THREAD_PAGE_SIZE =20
 
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
   
-  def self.list_forum_threads_with_max_answers(list_forums, hours_back =24, type='f')
-    
-    File.write("forums_thread_f.html", "")
-    
-    list_forums.each do |fid|
-      forum_threads_with_max_answers(fid,hours_back,'f')
-    end
-
-  end
-  
-  THREADS_ANALZ_NUM=15
-
-  def self.forum_threads_with_max_answers(fid, time =24, type='f')
-    from=date_now(time)
-    to=date_now(0)
-
-    title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
-    threads_titles = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :title)
-
-    stat = DB[:threads_stat].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
-    .select_map([:tid,:responses,:last_post_date])
-
-    ##generate
-    out = []    
-    
-    is_forum = type =='f' 
-    bold =  is_forum ? "[b]" : "**"
-    bold_end = is_forum ? "[/b]" : "**"
-
-    out<< ""
-    is_forum ? out<<"#{bold}forum: #{title}#{bold_end}" : out<<"Most active(for #{time} hours) threads from \"#{bold}#{title}#{bold_end}\""
-    out<<"#{bold}#{from.strftime("%F %H:%M")}  -  #{to.strftime("%F %H:%M")}#{bold_end}"
-    out<<"------------"
-
-    max_resps_threads = stat.group_by{|h| h[0]}
-    .select{|k,v| v.size>1}
-    .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax; dd[1]-dd[0] }
-    .reverse.take(15)
-
-    max_resps_threads.each do |tid, tt|
-
-      if true
-        ranks = DB[:posts].filter( Sequel.lit("siteid=? and tid=? and addeddate > ?", SID, tid, from) )
-        .order(:addeddate).select_map(:addedrank)
-
-        ranks_gr = ranks.group_by{|x| (x||1)}.map { |k,v| [k,v.size]}.to_h
-        rank_info = [1,2,3,4,5,11].map{|x|  "#{x==11? 'legend': ('rank(%s)' % x)}-#{ranks_gr[x]||0} "}.join(' ')
-      end
-
-      resps_minmax=tt.map { |el| el[1]  }.minmax
-
-      page_and_num = PageUtil.calc_last_page(resps_minmax[1]+1,20)
-      lpage = (page_and_num[0]-1)*40 rescue 0      
-      url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
-      out<< "responses: #{ resps_minmax[1]-resps_minmax[0]} "
-      out<< "#{rank_info}"
-      out<< "#{url}    #{threads_titles[tid]}"
-      out<< ""
-    end
-    out<<"----------"
-    report_name = is_forum ? "forums_thread_f" : "forums_thread_t" 
-
-    fpath ="#{report_name}.html"
-    File.write(fpath, out.join("\n"), mode: 'a')
-
-  end
 
 
 ################## ----------------------------------
@@ -181,6 +115,7 @@ class BctReport
     puts res
 
   end
+  
   def self.top_active_users_for_forum(fid)
 
     title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
@@ -203,67 +138,4 @@ class BctReport
 
   end
 
-  def self.print_users_bounty(fid)
-
-    title = DB[:forums].filter(siteid:SID,fid:fid).select_map(:title)
-    from=DateTime.now.new_offset(0/24.0)-0.6
-
-    unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
-    user_bounties = DB[:bct_user_bounty].to_hash(:uid, :bo_name)
-
-    posts = DB[:posts].join(:threads, :tid=>:tid)
-    .join(:users, :uid=>:posts__addeduid)
-    .filter(fid:fid)
-    .filter(Sequel.lit("posts.siteid=? and addeddate > ? and rank>2", SID, from))
-    .select(:addeduid, :addedby).all
-
-    res=[]
-    res<<"top 25 users bounty from: #{from.strftime("%F %H:%M")} forum:#{title}"
-    posts.group_by{|pp| pp[:addeduid]}.select{|uid,pp| user_bounties[uid]}
-    .sort_by{|uid,pp| -unames[uid][1]}.each do |uid,uposts|
-      res<<"[b]#{unames[uid][0]}[/b] (#{unames[uid][1]}) #{user_bounties[uid]}"
-    end  
-
-    fpath ="../report/users_bounties_#{fid.join('_')}.html"
-    File.write(fpath, res.join("\n"))
-
-  end   
-  def self.print_grouped_by_bounty(fid, hours=24)
-
-    title = DB[:forums].filter(siteid:SID,fid:fid).select_map(:title)
-    p "report print_grouped_by_bounty forum:#{title}"
-    from=DateTime.now.new_offset(0/24.0)-hours/24.0
-
-    unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
-    user_bounties = DB[:bct_user_bounty].to_hash(:uid, :bo_name)
-
-    posts = DB[:posts].join(:threads, :tid=>:tid)
-    .join(:users, :uid=>:posts__addeduid)
-    .filter(fid:fid)
-    .filter(Sequel.lit("posts.siteid=? and addeddate > ? and rank>2", SID, from))
-    .select(:addeduid).all
-
-    res=[]
-    res<<"grouped by bounty  ***forum:#{title} for last #{hours} hours"
-    users = posts.group_by{|pp| pp[:addeduid]}.select{|uid,b_uu| user_bounties[uid]}.map { |k,v| k }
-    users.group_by{|uid| user_bounties[uid].gsub(' ', '')}.sort_by{|bname,uu| -uu.size}.each do |bname, uids|
-      break if uids.size<2
-
-      #res<<" -------"
-      res<<" ---[b]#{bname}[/b] #{uids.size}"
-      res<< uids.each_slice(5).to_a.map do |sub_uids| 
-        sub_uids.map { |uid| "#{unames[uid][0]}(#{unames[uid][1]})"}.join(',')
-      end
-
-    end  
-    fidd = fid.join('_') rescue fid
-
-    fpath ="../report/grouped_bounties_#{fidd}.html"
-    File.write(fpath, res.join("\n"))
-
-  end        
 end
-
-#67 159
-#BctReport.print_users_bounty([67,159])
-#BctReport.print_grouped_by_bounty [67,159]

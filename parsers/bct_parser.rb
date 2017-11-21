@@ -44,7 +44,7 @@ class BCTalkParser
     pp = (pg>1 ? "#{(pg-1)*40}" : "0")
     link = "https://bitcointalk.org/index.php?board=#{fid}.#{pp}"
 
-    page = Nokogiri::HTML(download_page(link,false))
+    page = Nokogiri::HTML(download_page(link))
     #page = Nokogiri::HTML(File.open("btctalk128.html"))
 
     threads = page.css("div.tborder table tr")
@@ -163,7 +163,7 @@ class BCTalkParser
     #added pre-last pages
     if need_downl_preLast_pages
 
-      (lp_num-1).downto(lp_num-6) do |pg|
+      (lp_num-1).downto(lp_num-30) do |pg|
         break if pg<1
         mc=0
         lp_date=nil
@@ -297,6 +297,7 @@ class BCTalkParser
 
     #p posts.map { |pp| [ pp[:addeddate].to_s ] }
     users_arr = users.values
+    users_ranks_stat = users_arr.map{|x| x[:rank]}
     more3stars = users_arr.count{|x| x[:rank]>3} rescue 0
 
     first_post_date = posts.first[:addeddate]
@@ -315,7 +316,7 @@ class BCTalkParser
     #p "[ parse_thread_page_html] tid:#{tid} pg:#{page} first:#{first_date.strftime("%F %H:%M")}"
 
     #{first_post_date: first_post_date} 
-    {stars: more3stars, first_post_date:first_post_date} 
+    {stars: more3stars, first_post_date:first_post_date, stat:users_ranks_stat} 
   end
 
   ##11-legendary
