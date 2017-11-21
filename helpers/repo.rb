@@ -160,7 +160,7 @@ class Repo
     count
   end
 
-  def self.insert_stat_thread_filter_fid_responses(sid, fid, fp_threads)
+  def self.insert_into_threads_responses(sid, fid, fp_threads)
 
     inserted=0
     DB.transaction do

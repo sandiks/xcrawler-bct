@@ -75,7 +75,7 @@ class BCTalkParser
 
     #page_threads.each_with_index { |tt, ind| p  "#{ind} #{tt[:title]} || #{tt[:updated]}"  }
     ##save statistics 
-    inserted=Repo.insert_stat_thread_filter_fid_responses(SID,fid,page_threads)
+    inserted=Repo.insert_into_threads_responses(SID, fid, page_threads)
 
     last_date =page_threads.last[:updated]
     p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"

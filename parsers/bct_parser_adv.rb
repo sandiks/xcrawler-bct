@@ -19,12 +19,12 @@ class BCTalkParserAdv
   #def self.check_selected_threads; BCTalkParserHelper.check_selected_threads; end
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
-  def self.load_list_forums_pages_threads_responses_to_stat_thread(forums,hours_back)
+  def self.list_load_forum_thread_responses(forums,hours_back)
 
     #Parallel.map(forums,:in_threads=>3) do |fid|
     forums.each do |fid|
       if need_parse(fid)
-        load_thread_responses_to_stat_thread(fid,hours_back)
+        load_forum_thread_responses(fid,hours_back)
       else
         p "already parsed #{fid}"
       end 
@@ -40,7 +40,7 @@ class BCTalkParserAdv
     last_parsed.to_datetime<date_now(1/2.0)
   end
 
-  def self.load_thread_responses_to_stat_thread(fid, hours=12, start_page=1) 
+  def self.load_forum_thread_responses(fid, hours=12, start_page=1) 
     
     BCTalkParser.set_opt({rank:4})
     BCTalkParser.class_variable_set(:@@from_date, date_now(hours))
@@ -78,7 +78,7 @@ class BCTalkParserAdv
 
 
   ## read from "threads_stat" table and download thread posts for last 3 pages 
-  def self.load_thread_posts_with_max_responses_in_interval(fid, h_back =24)
+  def self.load_max_responses_threads_posts_in_interval(fid, h_back =24)
     
     title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
     p "----------------FORUM: #{fid} #{title}"
@@ -86,7 +86,7 @@ class BCTalkParserAdv
     from=date_now(h_back)
     BCTalkParser.class_variable_set(:@@from_date, from)
 
-    p " --load_thread_posts_with_max_responses_in_interval fid:#{fid} h_back:#{h_back} start_from:#{from.strftime("%F %H:%M:%S")}"
+    p " --load_max_responses_threads_posts_in_interval fid:#{fid} h_back:#{h_back} start_from:#{from.strftime("%F %H:%M:%S")}"
     to=date_now(0)
 
     threads_responses = DB[:threads_responses].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))

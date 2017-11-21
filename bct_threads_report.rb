@@ -133,7 +133,8 @@ class BctThreadsReport
     
     threads_stats.each do |tt|
       tid = tt[:tid]
-      url = "https://bitcointalk.org/index.php?topic=#{tid}"
+      page=(tt[:last_page]-1)*40 rescue 0
+      url = "https://bitcointalk.org/index.php?topic=#{tid}.#{page}"
 
       out<< ""
       out<<"#{bold}thread: (#{tid}) #{threads_titles[tid]}#{bold_end} url: #{url}"
@@ -148,4 +149,3 @@ class BctThreadsReport
   end
 
 end
-BctThreadsReport.show_forums_threads_with_count_users_rank(159)
