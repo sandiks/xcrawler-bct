@@ -15,22 +15,23 @@ class BctUsersReport
 
 
 ################## ----------------------------------
-  def self.gen_threads_with_stars_users(fid, type='f', time =12)
-    rank=3
+  def self.gen_threads_with_stars_users(fid, hours =12)
+    type='f'
+    rank=2
     time=6 if time==0
     
-    from=DateTime.now.new_offset(0/24.0)-time/24.0
-    to=DateTime.now.new_offset(0/24.0)
+    from = date_now(hours)
+    to =   date_now(0)
 
     title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
     uranks = DB[:users].filter(siteid:SID).to_hash(:name, :rank)
     threads = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :title)
     threads_responses = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :responses)
 
-    posts = DB[:posts].join(:threads, :tid=>:tid).join(:users, :uid=>:posts__addeduid)
-    .filter(Sequel.lit("posts.siteid=? and threads.fid=? and addeddate > ? and addeddate < ? and rank>=?", SID, fid, from, from+1,rank))
+    posts = DB[:posts].join(:threads, :tid=>:tid)
+    .filter(Sequel.lit("posts.siteid=9 and threads.fid=? and addeddate > ? and addeddate < ? and addedrank>=?", fid, from, to,rank))
     .order(:addeddate)
-    .select(:addeduid, :addedby, :addeddate, :posts__tid, :rank).all
+    .select(:addeduid, :addedby, :addeddate, :posts__tid, :addedrank).all
 
     p "forum:#{title} posts:#{posts.size}"
 
@@ -77,7 +78,7 @@ class BctUsersReport
     if false #is_forum  #active users
       top = 25
 
-      posts = DB[:posts].join(:threads, :tid=>:tid).join(:users, :uid=>:posts__addeduid)
+      posts = DB[:posts].join(:threads, :tid=>:tid)
       .filter(Sequel.lit("posts.siteid=? and threads.fid=? and addeddate > ?", SID, fid, from)).select(:addeduid, :addedby).all
 
       out<<"**top #{top} active users** from:#{from.strftime("%F %H:%M")}"
@@ -88,7 +89,7 @@ class BctUsersReport
 
     rep_name = is_forum ? "for_rep" : "teleg_rep" 
 
-    fpath ="../report/#{rep_name}_#{fid}.html"
+    fpath ="report/#{rep_name}_#{fid}.html"
     File.write(fpath, out.join("\n"))
     #system "chromium '#{fpath}'"
 

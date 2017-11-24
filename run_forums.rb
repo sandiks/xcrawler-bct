@@ -24,7 +24,7 @@ case action
 
 when 'check_forums';    BCTalkParser.check_forums(fid) #pages_back
 when 'selected';        BCTalkParser.check_selected_threads
-when 'parse_forum';       BCTalkParser.parse_forum(fid,second,true) #if true #need_parse_forum(first,9)
+when 'parse_forum';       BCTalkParser.set_from_date(12).parse_forum(fid,second,true) #if true #need_parse_forum(first,9)
 when 'parse_forum_diff2'; BCTalkParser.set_opt({thread_posts_diff:2,rank:2}).parse_forum(fid,second,true) # fid page need_dowl
   
 when 'parse_thr'
@@ -34,4 +34,4 @@ when 'parse_thr'
   end
 
 end
-p BCTalkParser.parse_thread_page(2398403,12)
+

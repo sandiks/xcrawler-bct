@@ -19,19 +19,6 @@ class BCTalkParserAdv
   #def self.check_selected_threads; BCTalkParserHelper.check_selected_threads; end
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
-  def self.list_load_forum_thread_responses(forums,hours_back)
-
-    #Parallel.map(forums,:in_threads=>3) do |fid|
-    forums.each do |fid|
-      if need_parse(fid)
-        load_forum_thread_responses(fid,hours_back)
-      else
-        p "already parsed #{fid}"
-      end
-    end
-
-  end
-
   def self.need_parse(fid)
     last_parsed = DB[:forums_stat].filter(sid:SID, fid:fid)
     .reverse_order(:bot_parsed).limit(1).select_map(:bot_parsed).first
@@ -40,10 +27,23 @@ class BCTalkParserAdv
     last_parsed.to_datetime<date_now(1/2.0)
   end
 
-  def self.load_forum_thread_responses(fid, hours=12, start_page=1)
+  def self.save_thread_responses_statistics_FOR_LIST_FORUMS(forums,hours_back)
+
+    #Parallel.map(forums,:in_threads=>3) do |fid|
+    forums.each do |fid|
+      if need_parse(fid)
+        save_thread_responses_statistics(fid,hours_back)
+      else
+        p "already parsed #{fid}"
+      end
+    end
+
+  end
+
+  def self.save_thread_responses_statistics(fid, hours=12, start_page=1)
 
     BCTalkParser.set_opt({rank:4})
-    BCTalkParser.class_variable_set(:@@from_date, date_now(hours))
+    BCTalkParser.set_from_date(hours) #class_variable_set(:@@from_date, date_now(hours))
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
     interval = "from #{BCTalkParser.from_date.strftime("%F %H:%M:%S")}- to #{date_now.strftime("%F %H:%M:%S")}"
@@ -75,10 +75,8 @@ class BCTalkParserAdv
   end
 
   THREADS_ANALZ_NUM=20
-
-
   ## read from "threads_stat" table and download thread posts for last 3 pages
-  def self.load_max_responses_threads_posts_in_interval(fid, hours_back =24)
+  def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24)
 
     title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
     p "----------------FORUM: #{fid} #{title}"
@@ -158,7 +156,7 @@ class BCTalkParserAdv
     from = date_now(hours_back)
     to=date_now(0)
 
-    BCTalkParser.class_variable_set(:@@from_date, from)
+    BCTalkParser.set_from_date(hours_back)
 
     responses =  DB[:threads].first(siteid:SID, tid:tid)[:responses]
 
@@ -218,6 +216,7 @@ class BCTalkParserAdv
     "planned:#{planned_str.ljust(30)}  down:#{finished_downl_pages} reliable:#{'%0.2f' % reliable} ranks_stat_all: #{dd}" if downl_pages.size>0     
 
   end
+
 
 ##end of class
 end

@@ -8,23 +8,24 @@ class BctThreadsReport
   DB = Repo.get_db
   SID = 9
   THREAD_PAGE_SIZE =20
+  @@report_file
 
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
-  def self.list_forum_threads_with_max_answers(list_forums, hours_back =24)
+  def self.report_response_statistic_LIST_FORUMS(list_forums, hours_back =24)
 
-    File.write("show_response_statistic_for_forum_threads.html", "")
+    @@report_file = "report_threads_sorted_by_repsonses_#{list_forums.join('_')}.html"
+    File.write(@@report_file, "")
 
     list_forums.each do |fid|
-      show_response_statistic_for_forum_threads(fid,hours_back,true)
+      report_response_statistic(fid,hours_back,true)
     end
 
   end
 
   THREADS_ANALZ_NUM=20
 
-  #def self.forum_threads_with_max_answers(fid, time =24, show_ranks=false)
-  def self.show_response_statistic_for_forum_threads(fid, time =24, show_ranks=false)
+  def self.report_response_statistic(fid, time =24, show_ranks=false)
 
     from=date_now(time)
     to=date_now(0)
@@ -110,9 +111,8 @@ class BctThreadsReport
       out<<""
 
     end
-
-    fpath ="show_response_statistic_for_forum_threads.html"
-    File.write(fpath, out.join("\n"), mode: 'a')
+    @@report_file = "report_threads_sorted_by_repsonses_#{fid}.html" unless @@report_file
+    File.write(@@report_file, out.join("\n"), mode: 'a')
 
   end
 

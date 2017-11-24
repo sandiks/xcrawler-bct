@@ -1,8 +1,5 @@
-require_relative  'parsers/bct_parser'
-require_relative  'parsers/bct_parser_adv'
-require_relative  'cmd_helper'
-require_relative  'bct_report'
-require_relative  'parsers/helpers/bct_helper'
+
+require_relative  'bct_users_report'
 
 action = ARGV[0]
 first = ARGV[1].to_i
@@ -24,8 +21,7 @@ fid = first
 case action
 
 ##report
-when 'repf';            BctReport.gen_threads_with_stars_users(fid,'f', second) ##ruby bctalk.rb rep 159 f|t
-when 'rept';            BctReport.gen_threads_with_stars_users(fid,'t', second) ##ruby bctalk.rb rep 159 f|t
+when 'rep';             BctReport.gen_threads_with_stars_users(fid, second) ##ruby bctalk.rb rep 159 f|t
 when 'bounty';          BctReport.print_grouped_by_bounty(fid) 
 when 'topu';            BctReport.top_active_users_for_forum(fid) ##ruby bctalk.rb topu 159
 when 'thread_users';    BctReport.analyse_users_posts_for_thread(fid) 

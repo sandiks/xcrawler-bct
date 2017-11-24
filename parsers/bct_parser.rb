@@ -21,6 +21,7 @@ class BCTalkParser
 
   #def self.check_selected_threads; BCTalkParserHelper.check_selected_threads; end
   def self.set_opt(opts={}); @@options = opts; return self; end
+  def self.set_from_date(h_back=24); @@from_date = date_now(h_back); return self; end
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
   
   def self.from_date
@@ -84,14 +85,15 @@ class BCTalkParser
 
     if downl_threads
       old_thread_resps = DB[:threads].filter(siteid:SID, fid: fid).to_hash(:tid,:responses)
-      load_forumPage_threads(fid, page_threads, old_thread_resps)
+      
+      load_page_threads_posts(fid, page_threads, old_thread_resps)
     end
 
     return nil if inserted ==0 
     return last_date
   end
 
-  def self.load_forumPage_threads(fid, page_threads, old_thread_resps)
+  def self.load_page_threads_posts(fid, page_threads, old_thread_resps)
   
     Parallel.map_with_index(page_threads,:in_threads=>2) do |thr,idx|
     #page_threads.each do |thr|
@@ -107,7 +109,7 @@ class BCTalkParser
       #old_resps = old_thread_resps[tid]
 
 ##calc how many pages_back neeed download for current thread 
-      downl_pages=calc_arr_downl_pages(tid,lpage,lcount,@@from_date).take(3)
+      downl_pages=calc_arr_downl_pages(tid,lpage,lcount,@@from_date).take(5)
 
       res=[]
       stars=0
