@@ -1,7 +1,6 @@
 require_relative  'parsers/bct_parser'
 require_relative  'parsers/bct_parser_adv'
-require_relative  'cmd_helper'
-require_relative  'bct_report'
+require_relative  'helpers/cmd_helper'
 require_relative  'parsers/helpers/bct_helper'
 
 action = ARGV[0]
@@ -35,3 +34,4 @@ when 'parse_thr'
   end
 
 end
+p BCTalkParser.parse_thread_page(2398403,12)

@@ -14,11 +14,11 @@ require_relative  'bct_threads_report'
 ##    238  bounty (Altcoins)
 ##    212   Micro Earnings
 
-FORUMS=[159,240,238]
+FORUMS=[159,240]
 
-#FORUMS=[67,52,1]
 fid = ARGV[1].to_i
-HOURS_BACK=12
+hours = ARGV[2].to_i
+HOURS_BACK=24
 
 downl_rank=1
 
@@ -32,16 +32,37 @@ def run(p1)
   scheduler.join
 end
 
+
+##   ruby bctalk_stat.rb stat_all
+##   ruby bctalk_stat.rb load_posts_sorted_max 159
+##   ruby bctalk_stat.rb stat_all_rep
+##   ruby bctalk_stat.rb stat 67 24
+
+def job
+  BCTalkParserAdv.list_load_forum_thread_responses(FORUMS, HOURS_BACK) ##ruby bctalk_stat.rb stat_all
+
+  BCTalkParserAdv.load_max_responses_threads_posts_in_interval(159,HOURS_BACK) ##   ruby bctalk_stat.rb load_posts_sorted_max 159
+  BCTalkParserAdv.load_max_responses_threads_posts_in_interval(240,HOURS_BACK) ##   ruby bctalk_stat.rb load_posts_sorted_max 240
+
+  #BctThreadsReport.show_response_statistic_for_forum_threads(fid, HOURS_BACK,true)
+  BctThreadsReport.list_forum_threads_with_max_answers(FORUMS,HOURS_BACK)
+end
+
+
 case ARGV[0]
-  when 'stat';                  BCTalkParserAdv.load_forum_thread_responses(fid, HOURS_BACK)
+  when 'job';                   job
+  when 'stat';                  BCTalkParserAdv.load_forum_thread_responses(fid, hours)
   when 'stat_all';              BCTalkParserAdv.list_load_forum_thread_responses(FORUMS, HOURS_BACK)
   when 'load_posts_sorted_max'; BCTalkParserAdv.load_max_responses_threads_posts_in_interval(fid,HOURS_BACK) ##load thr-posts 
   when 'load_posts';            BCTalkParserAdv.load_only_top10_post_in_thread(ARGV[1].to_i,downl_rank) 
+  when 'load_unreliable';       BCTalkParserAdv.load_unreliable_threads(fid)
   
-  when 'stat_rep';              BctThreadsReport.forum_threads_with_max_answers(fid, HOURS_BACK,true) 
+  when 'stat_rep';              BctThreadsReport.show_response_statistic_for_forum_threads(fid, HOURS_BACK,true) 
   when 'stat_all_rep';          BctThreadsReport.list_forum_threads_with_max_answers(FORUMS,HOURS_BACK) 
-  when 'analz_thread_posts_of_users_rank1'; BctThreadsReport.analz_thread_posts_of_users_rank1(2250212,HOURS_BACK) ##load thr-posts 
-  when 'show_forums_threads_with_count_users_rank'; BctThreadsReport.show_forums_threads_with_count_users_rank(fid)
+  when 'report_forums_active_threads_with_users_rank'; BctThreadsReport.report_forums_active_threads_with_users_rank(fid)
 
   when 'scheduler';             run(30)
 end
+#BctThreadsReport.analz_thread_posts_of_users_rank1(2009966,48) ##load thr-posts 
+
+BCTalkParserAdv.load_thread_before_date(240,2078239,24)

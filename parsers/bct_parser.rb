@@ -122,7 +122,7 @@ class BCTalkParser
             break
           rescue  =>ex 
             puts "#{idx} !!!load_forum_threads [#{tid}.#{pp[0]}] #{ex.class} "
-            File.open('BCT_THREADS_ERRORS', 'a') { |f| f.write("#{tid} #{pp[0]}\n") }
+            #File.open('BCT_THREADS_ERRORS', 'a') { |f| f.write("#{tid} #{pp[0]}\n") }
             sleep 2 
           end
         end
@@ -245,7 +245,7 @@ class BCTalkParser
       end
 
       #parse signature
-      if sign_tr && (links = sign_tr.css('a'))
+      if @@options[:parse_signature] && sign_tr && (links = sign_tr.css('a'))
 
         grouped_domains = links.group_by do |ll|
           link = ll['href'].gsub(' ','').strip
@@ -296,6 +296,8 @@ class BCTalkParser
     end
 
     #p posts.map { |pp| [ pp[:addeddate].to_s ] }
+    #p "parse signature: #{@@options[:parse_signature]}"
+
     users_arr = users.values
     users_ranks_stat = users_arr.map{|x| x[:rank]}
     more3stars = users_arr.count{|x| x[:rank]>3} rescue 0

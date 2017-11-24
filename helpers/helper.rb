@@ -13,10 +13,32 @@ class Time
   end
 end
 
-def download_page(url, direct = true)#win1251, utf-8, ISO-8859-1 
+class Array
+  def sum
+    inject(0.0) { |result, el| result + (el||0) }
+  end
+
+  def mean
+    sum / size
+  end
+end
+
+class Time
+  def to_datetime
+    # Convert seconds + microseconds into a fractional number of seconds
+    seconds = sec + Rational(usec, 10**6)
+
+    # Convert a UTC offset measured in minutes to one measured in a
+    # fraction of a day.
+    offset = Rational(utc_offset, 60 * 60 * 24)
+    DateTime.new(year, month, day, hour, min, seconds, 0/24.0)
+  end
+end
+
+def download_page(url, direct = true)#win1251, utf-8, ISO-8859-1
   headers = { 'User-Agent' => 'Windows / Firefox 32: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:26.0) Gecko/20100101 Firefox/32.0'}
   encoding=""
-  
+
   if !direct
     p "download-tor url #{url}"
     browser = Mechanize.new
@@ -28,7 +50,7 @@ def download_page(url, direct = true)#win1251, utf-8, ISO-8859-1
     #req = Net::HTTP::Get.new(uri.path,headers)
     #response = Net::HTTP.start(uri.host,uri.port) { |http| http.request(req) }
     #open(url,headers)
-    
+
     if encoding == "win1251"
       downl_win1251(url, headers)
     elsif encoding == "ISO-8859-1"
