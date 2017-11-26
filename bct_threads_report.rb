@@ -8,13 +8,14 @@ class BctThreadsReport
   DB = Repo.get_db
   SID = 9
   THREAD_PAGE_SIZE =20
-  @@report_file
+  REPORT_FILE = "report_threads_sorted_by_repsonses_%s.html"
+  @@report_file=""
 
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
   def self.report_response_statistic_LIST_FORUMS(list_forums, hours_back =24)
 
-    @@report_file = "report_threads_sorted_by_repsonses_#{list_forums.join('_')}.html"
+    @@report_file = REPORT_FILE % [list_forums.join('_')]
     File.write(@@report_file, "")
 
     list_forums.each do |fid|
@@ -31,7 +32,7 @@ class BctThreadsReport
     to=date_now(0)
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
-    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable])
+    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable,:responses])
 
 
     ##generate
@@ -47,23 +48,20 @@ class BctThreadsReport
     out<<"#{bold}#{from.strftime("%F %H:%M")}  -  #{to.strftime("%F %H:%M")}#{bold_end}"
     out<<"------------"
 
-    threads_responses = DB[:threads_responses].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
+
+    ## unreliable threads
+    unreliable_threads = threads_attr.select{ |k,v| v[1] && v[1]<0.3   }
+
+
+    unreliable_tids = unreliable_threads.keys
+    unreliable_titles = unreliable_threads.map{|tid,v| "tid:#{tid} #{v[0]}" }
+
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ? and tid not in ?", fid, from, unreliable_tids))
     .select_map([:tid,:responses,:last_post_date])
 
-    ##show unreliable threads
-    unreliable_tids=[]
-    if true #show_unreliable_threads
-      unreliable_threads = DB[:threads].filter(Sequel.lit("fid=? and reliable<0.3",fid)).select(:tid, :title).all
-      unreliable_tids = unreliable_threads.map{|x| x[:tid]}
-      unreliable_titles = unreliable_threads.map{|x| x[:title].gsub('?', '').strip }
-
-      out<< "[color=red]UNRELIABLE THREADS!!![/color]"
-      out+= unreliable_titles
-      out<<"------------"
-    end
 
     max_resps_threads = threads_responses.group_by{|h| h[0]}
-    .select{ |k,v| v.size>1 && (!unreliable_tids.include?(k)) }
+    .select{ |k,v| v.size>1}
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax; dd[1]-dd[0] }
     .reverse.take(THREADS_ANALZ_NUM)
 
@@ -76,13 +74,19 @@ class BctThreadsReport
       #next if tid!=2198936
       min_date_from_thread_stat=tt.min_by{|x| x[2]}[2] #min_by(&:last_post_date)
 
+      is_reliable = true
       if show_ranks
         ranks = DB[:posts].filter( Sequel.lit("siteid=? and tid=? and addeddate > ?", SID, tid, min_date_from_thread_stat) )
         .order(:addeddate).select_map(:addedrank)
         all_posts_count =  ranks.size
 
         ranks_gr = ranks.group_by{|x| (x||1)}.map { |k,v| [k,v.size]}.to_h
-        rank_info = [1,2,3,4,5,11].map{|x|  "#{x==11? 'legend': ('rank(%s)' % x)}-#{ranks_gr[x]||0} "}.join(' ')
+        #rank_info = [1,2,3,4,5,11].map{|x|  "#{x==11? 'legend': ('rank(%s)' % x)}-#{ranks_gr[x]||0} "}.join(' ')
+        rank_info = [1,2,3,4,5,11].map{|x|  "#{ranks_gr[x]||0}"}.join(' ')
+
+        sum = ranks_gr.map{ |dd| dd[1] }.sum
+        #is_reliable = (ranks_gr[1]+ranks_gr[2])/sum.to_f <0.7
+      
       end
 
       resps_minmax=tt.map { |el| el[1]  }.minmax
@@ -94,30 +98,40 @@ class BctThreadsReport
 
       url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
 
-      reliable=threads_attr[tid][1]
-      if reliable && reliable <0.3
-        reliable_str="reliable: #{'%0.2f' % reliable }  [color=red]!!!UNRELIABLE[/color]"
-      end
-
-      thr_title_cleaned = threads_attr[tid][0].gsub('?', '').strip ####.gsub(/\A[\d_\W]+|[\d_\W]+\Z/, '')
-      out<<"#{indx} #{url} #{thr_title_cleaned}"
-      #out<< "responses: #{ diff_responses }"
-
       if show_ranks
-        out<< "#{reliable_str} downloaded posts:#{all_posts_count}    from:#{min_date_from_thread_stat.strftime("%F %H:%M")}"
-        out<< "#{rank_info}"
+        #out<< "#{reliable_str} responses:#{all_posts_count}    from:#{min_date_from_thread_stat.strftime("%F %H:%M")}"
+        out<< "responses:#{all_posts_count} ranks:(#{rank_info})"
+      else 
+        out<< "responses: #{ diff_responses }"
       end
 
+      thr_title_cleaned = threads_attr[tid][0]
+      out<<"#{indx} #{url} [b]#{thr_title_cleaned}[/b]"
       out<<""
 
     end
-    @@report_file = "report_threads_sorted_by_repsonses_#{fid}.html" unless @@report_file
-    File.write(@@report_file, out.join("\n"), mode: 'a')
+
+    if true #show_unreliable_threads
+      url_templ = "https://bitcointalk.org/index.php?topic=%s.%s"
+
+      out<< "[color=red]UNRELIABLE THREADS!!![/color]"
+      unreliable_threads.each do |tid,v|
+        
+        page_and_num = PageUtil.calc_last_page(v[2]+1,20)
+        lpage = (page_and_num[0]-1)*40 rescue 0
+        url = url_templ % [tid, lpage]
+        out << "#{url} #{v[0].sub('[PRE]','[ PRE]')}" 
+      end
+      out<<"------------"
+    end    
+
+    @@report_file = REPORT_FILE % [fid] if @@report_file==""
+    File.write("report/"+@@report_file, out.join("\n"), mode: 'a')
 
   end
 
-  def self.analz_thread_posts_of_users_rank1(tid, time =24)
-    from=date_now(time)
+  def self.analz_thread_posts_of_users(tid, hours_back =24)
+    from=date_now(hours_back)
     to=date_now(0)
 
     threads_title = DB[:threads].first(siteid:SID,tid:tid)[:title]
@@ -138,13 +152,14 @@ class BctThreadsReport
 
     posts.each do |pp|
       out<<"----------"
-      out<< "added: #{pp[:addedby]}"
-      out<< " date: #{pp[:addeddate].strftime("%F %H:%M")}"
+      out<< "#{pp[:addedby]}(#{pp[:addedrank]}) date: #{pp[:addeddate].strftime("%F %H:%M")}"
       out<<"----------"
-
       out<< pp[:body]
+      out<<""
+      out<<""
+
     end
-    fpath ="analz_thread_posts_of_users_rank1.html"
+    fpath ="report/analz_thread_posts_of_users_#{tid}_hours_#{hours_back}.html"
     File.write(fpath, out.join("\n"))
   end
 

@@ -84,8 +84,12 @@ class BCTalkParserAdv
     from=date_now(hours_back)
     to=date_now(0)
 
+    unreliable_threads = DB[:threads].filter(Sequel.lit("fid=? and reliable<0.3",fid)).select_map(:tid)
+
     p " --load_max_responses_threads_posts_in_interval fid:#{fid} hours_back:#{hours_back} start_from:#{from.strftime("%F %H:%M:%S")}"
-    threads_responses = DB[:threads_responses].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid,from))
+    
+    #threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ? ",fid, from))
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ? and tid not in ?",fid, from, unreliable_threads))
     .select_map([:tid,:responses,:last_post_date])
 
     ########analz
@@ -95,7 +99,7 @@ class BCTalkParserAdv
     .reverse.take(THREADS_ANALZ_NUM)
 
     #sorted_thread_stats.each do |tid, tt|
-    Parallel.map_with_index(sorted_thread_stats,:in_threads=>3) do |rr,idx|
+    Parallel.map_with_index(sorted_thread_stats,:in_threads=>1) do |rr,idx|
 
       tid = rr[0]
       resps = rr[1]
@@ -167,7 +171,7 @@ class BCTalkParserAdv
     url_templ = "https://bitcointalk.org/index.php?topic=%s.%s"
     url = url_templ % [tid,(lpage-1)*40]
 
-    downl_pages=BCTalkParser.calc_arr_downl_pages(tid, lpage, lcount, from).take(10)
+    downl_pages=BCTalkParser.calc_arr_downl_pages(tid, lpage, lcount, from).take(15)
 
     finished_downl_pages=[]
     ranks_stat_all=Hash.new(0)
@@ -205,19 +209,80 @@ class BCTalkParserAdv
 
       dd=[rr[:r1_count],rr[:r2_count],rr[:r3_count],rr[:r4_count],rr[:r5_count],rr[:r11_count]]
       sum = dd.sum
-      reliable = 1- dd[0]/sum.to_f     
+      reliable = 1- (dd[0]+dd[1])/sum.to_f     
       #DB[:threads].filter(siteid:9, tid: tid).update(reliable: reliable) if  sum>20
 
     end
 
-    planned_str=downl_pages.map { |pp| "#{pp[0]-pp[1]}" }.join(' ')
+    planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
     
     p "---load_thr #{tid} last pg,count: #{page_and_num}".ljust(50)+
-    "planned:#{planned_str.ljust(30)}  down:#{finished_downl_pages} reliable:#{'%0.2f' % reliable} ranks_stat_all: #{dd}" if downl_pages.size>0     
+    "planned:#{planned_str.ljust(30)}  down:#{finished_downl_pages} ranks_stat_all: #{dd}" if downl_pages.size>0     
 
   end
 
+  def self.calc_reliable_for_forum(fid, time =24)
 
+    from=date_now(time)
+    to=date_now(0)
+
+    forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
+    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable])
+
+    ## unreliable threads
+    unreliable_threads = threads_attr.select{ |k,v| v[1] && v[1]<0.3   }
+    unreliable_tids = unreliable_threads.keys
+    unreliable_titles = unreliable_threads.map{|tid,v| "tid:#{tid} #{v[0].gsub('?', '').strip}" }
+
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ? and tid not in ?", fid, from, unreliable_tids))
+    .select_map([:tid,:responses,:last_post_date])
+
+
+    max_resps_threads = threads_responses.group_by{|h| h[0]}
+    .select{ |k,v| v.size>1}
+    .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax; dd[1]-dd[0] }
+    .reverse.take(40)
+
+    indx=0
+    out = []
+
+    max_resps_threads.each do |tid, tt|
+
+      indx+=1
+      min_date_from_thread_stat = tt.min_by{|x| x[2]}[2]
+
+      ## calc reliable
+      ranks = DB[:posts].filter( Sequel.lit("tid=? and addeddate > ?", tid, min_date_from_thread_stat) )
+      .order(:addeddate).select_map(:addedrank)
+      
+
+      ranks_gr = ranks.group_by{|x| (x||1)}.map { |k,v| [k,v.size]}.to_h
+      sum = ranks_gr.map{ |dd| dd[1] }.sum
+      next if sum==0
+      
+      reliable_ff = 1-( (ranks_gr[1]||0) + (ranks_gr[2]||0) )/sum.to_f 
+      
+      if sum>30 && reliable_ff<0.3
+        thr_title_cleaned = threads_attr[tid][0].gsub('?', '').strip ####.gsub(/\A[\d_\W]+|[\d_\W]+\Z/, '')
+        out<<"#{indx} ff: #{reliable_ff} ranks #{ranks_gr}  [b]#{thr_title_cleaned}[/b]"
+        DB[:threads].filter(siteid:9, tid: tid).update(reliable: reliable_ff)
+
+      end
+
+    end
+    out<<"------------"
+
+
+    if true #show_unreliable_threads
+      out<< "[color=red]UNRELIABLE THREADS!!![/color]"
+      out+= unreliable_titles
+      out<<"------------"
+    end    
+
+    @@report_file = "calc_reliable_#{fid}.txt"
+    File.write("report/"+@@report_file, out.join("\n"))
+
+  end
 ##end of class
 end
     

@@ -56,7 +56,7 @@ class BCTalkParser
       next if tr.css("td").size != 7
 
       thr_a = tr.css("td:nth-child(3)  a")[0]
-      thr_title = thr_a.text
+      thr_title = thr_a.text.gsub(/[^0-9a-z \[\]\*!]/i, ' ').strip
       thr_link = thr_a['href']
       tid = thr_link.split('=').last.scan(/\d+/)[0].to_i
       date = tr.css("td:nth-child(7) span").text.strip
@@ -74,14 +74,13 @@ class BCTalkParser
       }
     end
 
-    #page_threads.each_with_index { |tt, ind| p  "#{ind} #{tt[:title]} || #{tt[:updated]}"  }
-    ##save statistics 
-    inserted=Repo.insert_into_threads_responses(SID, fid, page_threads)
-
     last_date =page_threads.last[:updated]
-    p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"
         
+    ## save/ update threads
     Repo.insert_or_update_threads_for_forum(page_threads,SID) if @@need_save
+    ## save statistics 
+    inserted=Repo.insert_into_threads_responses(SID, fid, page_threads)
+    p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"
 
     if downl_threads
       old_thread_resps = DB[:threads].filter(siteid:SID, fid: fid).to_hash(:tid,:responses)
@@ -89,7 +88,7 @@ class BCTalkParser
       load_page_threads_posts(fid, page_threads, old_thread_resps)
     end
 
-    return nil if inserted ==0 
+    #return nil if inserted ==0 
     return last_date
   end
 

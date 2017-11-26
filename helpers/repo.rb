@@ -148,7 +148,7 @@ class Repo
               DB[:threads].filter(siteid:sid, tid: thr[:tid]).update(thr)
             else
               DB[:threads].filter(siteid:sid, tid: thr[:tid])
-              .update(responses: thr[:responses], viewers: thr[:viewers], updated: thr[:updated])
+              .update(title: thr[:title], responses: thr[:responses], viewers: thr[:viewers], updated: thr[:updated])
             end
           end
 
@@ -164,6 +164,7 @@ class Repo
 
     inserted=0
     DB.transaction do
+
       exist = DB[:threads_responses].filter(fid: fid).to_hash(:tid, :responses)
       thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
 
@@ -172,11 +173,16 @@ class Repo
         title=tt[:title]
 
         if exist[tt[:tid]] != tt[:responses]
-          rr = {sid:sid, fid:tt[:fid], tid:tid, responses:tt[:responses],
-            last_post_date:tt[:updated], parsed_at:datetime_now(sid) } 
-            
+          dd=DateTime.now.new_offset(0/24.0)
+          day= dd.day
+          hour= dd.hour
+
+          rr = {fid:tt[:fid], tid:tid, responses:tt[:responses],
+            last_post_date:tt[:updated], parsed_at:dd, day:day, hour:hour}
+      
           DB[:threads_responses].insert(rr)
           inserted+=1
+
         else
           #p "#{tt[:tid]} exist with same responses #{tt[:responses]}"
         end
