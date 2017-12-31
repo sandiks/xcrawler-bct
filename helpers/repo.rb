@@ -160,7 +160,7 @@ class Repo
     count
   end
 
-  def self.insert_into_threads_responses(sid, fid, fp_threads)
+  def self.insert_into_threads_responses(sid, fid, forum_page_threads)
 
     inserted=0
     DB.transaction do
@@ -168,7 +168,7 @@ class Repo
       exist = DB[:threads_responses].filter(fid: fid).to_hash(:tid, :responses)
       thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
 
-      fp_threads.each do |tt|
+      forum_page_threads.each do |tt|
         tid=tt[:tid]
         title=tt[:title]
 
@@ -179,8 +179,10 @@ class Repo
 
           rr = {fid:tt[:fid], tid:tid, responses:tt[:responses],
             last_post_date:tt[:updated], parsed_at:dd, day:day, hour:hour}
-      
+
+          DB[:threads_responses].filter(fid:fid, tid:tid, day:day, hour:hour).delete
           DB[:threads_responses].insert(rr)
+
           inserted+=1
 
         else

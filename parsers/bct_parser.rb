@@ -56,7 +56,7 @@ class BCTalkParser
       next if tr.css("td").size != 7
 
       thr_a = tr.css("td:nth-child(3)  a")[0]
-      thr_title = thr_a.text.gsub(/[^0-9a-z \[\]\*!]/i, ' ').strip
+      thr_title = thr_a.text.gsub(/[^0-9a-zа-я\[\]\*!-()]/i, ' ').strip
       thr_link = thr_a['href']
       tid = thr_link.split('=').last.scan(/\d+/)[0].to_i
       date = tr.css("td:nth-child(7) span").text.strip
@@ -78,8 +78,10 @@ class BCTalkParser
         
     ## save/ update threads
     Repo.insert_or_update_threads_for_forum(page_threads,SID) if @@need_save
+    
     ## save statistics 
     inserted=Repo.insert_into_threads_responses(SID, fid, page_threads)
+    
     p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"
 
     if downl_threads
@@ -121,6 +123,7 @@ class BCTalkParser
             data = parse_thread_page(tid, pp[0]) 
             stars += data[:stars]||0
             break
+
           rescue  =>ex 
             puts "#{idx} !!!load_forum_threads [#{tid}.#{pp[0]}] #{ex.class} "
             #File.open('BCT_THREADS_ERRORS', 'a') { |f| f.write("#{tid} #{pp[0]}\n") }
@@ -129,7 +132,7 @@ class BCTalkParser
         end
 
       end      
-      planned_str=downl_pages.map { |pp| "<#{pp[0]}*#{pp[1]} #{ pp[2] ? pp[2].strftime('%d**%H:%M:%S') : 'nil'}>" }.join(', ')
+      planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
 
       p "[#{idx} load_thr #{tid} last:#{page_and_num}".ljust(40)+
       "upd: #{thr[:updated].strftime("%d**%H:%M:%S") }]".ljust(20)+
@@ -150,6 +153,7 @@ class BCTalkParser
 
     tpages = DB[:tpages].filter(Sequel.lit("siteid=? and tid=?", SID, tid)).to_hash(:page,[:postcount,:fp_date])
     
+    #p tpages.map { |k,v| "[#{k},#{v[0]}]"  }
     #last thread page
     need_downl_preLast_pages=true
 
@@ -166,15 +170,16 @@ class BCTalkParser
 
       (lp_num-1).downto(lp_num-30) do |pg|
         break if pg<1
-        mc=0
+        
+        post_count=0
         lp_date=nil
         if tpages[pg]
-          mc =  tpages[pg][0]
+          post_count =  tpages[pg][0]
           lp_date = tpages[pg][1]
           date_is_out = lp_date && lp_date.to_datetime< start_date
         end
 
-        downl_pages<<[pg, mc, lp_date] if mc!=THREAD_PAGE_SIZE 
+        downl_pages<<[pg, post_count, lp_date] if post_count!=THREAD_PAGE_SIZE 
         break if date_is_out
       end
     end

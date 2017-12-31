@@ -61,13 +61,13 @@ class BctUsersReport
 
             out<<"#{bold}#{idx+=1} #{thr_title}#{bold_end} #{url} #{posts}"
             if is_forum
-              th_posts.group_by{|pp| pp[:addedby]}.sort_by{|uname,pp| -(uranks[uname]||0)}.each  do |uname,uposts|
+              th_posts.group_by{|pp| [pp[:addedby],pp[:addedrank]]}.sort_by{|k,pp| -k[1]}.each  do |key,uposts|
                 ss = uposts.size
-                out<<"#{bold}#{uname} (#{print_rank(uranks[uname])})#{bold_end} [#{ss>1 ? ss.to_s+' posts' : '1 post'}]"
+                out<<"#{bold}#{key[0]} (#{print_rank(key[1])})#{bold_end} [#{ss>1 ? ss.to_s+' posts' : '1 post'}]"
               end if is_forum
             else
               count = th_posts.size
-              dd = [11,5,4,3].map { |rr|  th_posts.count{|pp| pp[:rank]==rr} }
+              dd = [11,5,4,3].map { |rr|  th_posts.count{|pp| pp[:addedrank]==rr} }
               #out<< "count:#{count}   legend #{dd[0]},  5-stars #{dd[1]},  4-stars #{dd[2]},  3-stars #{dd[3]}"  
             end
 
