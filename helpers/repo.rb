@@ -166,7 +166,7 @@ class Repo
     DB.transaction do
 
       exist = DB[:threads_responses].filter(fid: fid).to_hash(:tid, :responses)
-      thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
+      #thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
 
       forum_page_threads.each do |tt|
         tid=tt[:tid]
@@ -347,5 +347,19 @@ class Repo
       DB[:tpages].insert({siteid:sid, tid:tid, page:page, postcount:count, fp_date: first_post_date})
     end
   end
+
+  def self.insert_or_update_tpage_ranks(tid, page, count, first_post_date, grouped_ranks)
+    return if page<1
+
+    #update table[tpages] with post count on page
+    rec = DB[:tpage_ranks].where({ tid:tid, page:page })
+    
+    #p "update tpage #{rec.sql}"
+    upd =rec.update({postcount:count,fp_date: first_post_date}.merge(grouped_ranks))
+
+    if 1 != upd 
+      DB[:tpage_ranks].insert({tid:tid, page:page, postcount:count, fp_date: first_post_date}.merge(grouped_ranks))
+    end
+  end  
 
 end

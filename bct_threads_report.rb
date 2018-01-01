@@ -24,7 +24,7 @@ class BctThreadsReport
 
   end
 
-  THREADS_ANALZ_NUM=20
+  THREADS_ANALZ_NUM=30
 
   def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24)
 
@@ -53,7 +53,6 @@ class BctThreadsReport
     to   = date_now(0)
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
-    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable,:responses])
 
 
     ##generate
@@ -71,6 +70,7 @@ class BctThreadsReport
 
 
     ## unreliable threads
+    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable,:responses])
     unreliable_threads = threads_attr.select{ |k,v| v[1] && v[1]<0.3   }
 
     unreliable_tids = unreliable_threads.keys
@@ -87,7 +87,6 @@ class BctThreadsReport
     tid_list.each do |tid, diff_responses|
     
       indx+=1
-
       reliable=DB[:threads].first(tid: tid)[:reliable]||1
       
       if false # reliable <0.3

@@ -24,17 +24,22 @@ def stat(fid)
   hours=24
   tid_list = nil
   BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
-  BctThreadsReport.report_response_statistic(fid, tid_list, hours, false)
+  #BctThreadsReport.report_response_statistic(fid, tid_list, hours, false) ##show 30 threads
 end
 
-def calc_reliablitiy
+#BCTalkParserAdv.calc_reliability_for_threads(159) #if fid==159||fid==240
+
+def calc_reliablitiy(fid)
   
-  fid=159
   hours=24
-  #tid_list= BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours)
   
-  tid_list = [2006010, 2666727, 2388064, 2649303, 735170, 2159012, 2505106, 1365894, 2268691, 2090765, 2515675, 2313170, 2040221, 1216479, 2595620, 1381323, 2482605, 2638878, 2350803, 2166510]
-  BCTalkParserAdv.calc_reliability_for_threads(fid, tid_list) if fid==159||fid==240
+  tid_list= nil
+
+  BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
+
+  BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours)
+
+  BctThreadsReport.report_response_statistic(fid, tid_list, hours, false) ##show 30 threads
 end
 
 #calc_reliablitiy
@@ -89,7 +94,7 @@ hours = ARGV[2].to_i
 case ARGV[0]
 
   when 'stat'; stat(fid)
-  when 'calc'; calc_reliablitiy
+  when 'calc'; calc_reliablitiy(fid)
   when 'job'; job
 
   when 'thread'; BCTalkParserAdv.load_thread_before_date(ARGV[1].to_i,hours)

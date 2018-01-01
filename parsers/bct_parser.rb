@@ -56,7 +56,7 @@ class BCTalkParser
       next if tr.css("td").size != 7
 
       thr_a = tr.css("td:nth-child(3)  a")[0]
-      thr_title = thr_a.text.gsub(/[^0-9a-zа-я\[\]\*!-()]/i, ' ').strip
+      thr_title = thr_a.text #.gsub(/[^0-9a-zа-я\[\]\*!-()]/i, ' ').strip
       thr_link = thr_a['href']
       tid = thr_link.split('=').last.scan(/\d+/)[0].to_i
       date = tr.css("td:nth-child(7) span").text.strip
