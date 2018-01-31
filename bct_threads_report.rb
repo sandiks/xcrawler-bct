@@ -24,7 +24,7 @@ class BctThreadsReport
 
   end
 
-  THREADS_ANALZ_NUM=30
+  THREADS_ANALZ_NUM=20
 
   def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24)
 
@@ -49,12 +49,12 @@ class BctThreadsReport
 
   def self.report_response_statistic(fid, tid_list, hours_back =24, show_ranks=false)
 
+    p "---------report_response_statistic --FORUM: (#{fid}) --hours_back:#{hours_back}"
+
     from = date_now(hours_back)
     to   = date_now(0)
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
-
-
     ##generate
     out = []
 
@@ -68,62 +68,55 @@ class BctThreadsReport
     out<<"#{bold}#{from.strftime("%F %H:%M")}  -  #{to.strftime("%F %H:%M")}#{bold_end}"
     out<<"------------"
 
+    indx=0
+    unless tid_list
+      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
+      .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first, dd.last] }
+    end
 
-    ## unreliable threads
-    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable,:responses])
+    topics=[]
+    tid_list.each do |tid, diff_responses, last_responses_num|
+    
+      indx+=1
+      thread = DB[:threads].first(tid: tid)
+      reliable= thread[:reliable]||1
+      thr_title = thread[:title]
+      last_responses_num = thread[:responses]
+      #next if tid!=421615
+ 
+      #####calculate last page for max number of responses
+
+      page_and_num = PageUtil.calc_last_page(last_responses_num+1,20)
+      lpage = (page_and_num[0]-1)*40 rescue 0
+      url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
+
+      thr_title = itd unless thr_title    
+      url = "#{url} [b]#{thr_title}[/b]"
+      topics <<{reliable: reliable, responses:diff_responses, url: url}
+      
+
+    end
+
+    ## generate report 
+    topics.sort_by{|dd| -dd[:reliable]}.each do |topic|
+      reliable = topic[:reliable]
+      out<< "reliable #{ '%0.2f' % reliable} responses: #{ topic[:responses] }"
+      out<< "#{topic[:url]}"
+      out<<""
+    end
+
+    @@report_file = REPORT_FILE % [fid] if @@report_file==""
+    File.write("report/"+@@report_file, out.join("\n"))
+
+  end
+
+  def self.unreliable_threads(fid, hours_back =24)
+    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable])
     unreliable_threads = threads_attr.select{ |k,v| v[1] && v[1]<0.3   }
 
     unreliable_tids = unreliable_threads.keys
     unreliable_titles = unreliable_threads.map{|tid,v| "tid:#{tid} #{v[0]}" }
-
-
-    indx=0
-    
-    unless tid_list
-      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
-      .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first] }
-    end
-
-    tid_list.each do |tid, diff_responses|
-    
-      indx+=1
-      reliable=DB[:threads].first(tid: tid)[:reliable]||1
-      
-      if false # reliable <0.3
-        p "----unreliable tid #{tid} reliable #{reliable}"
-        next 
-      end
-      #next if tid!=421615
-
-      if show_ranks
-        ranks = DB[:posts].filter( Sequel.lit("siteid=? and tid=? and addeddate > ?", SID, tid, from) )
-        .order(:addeddate).select_map(:addedrank)
-        all_posts_count =  ranks.size
-
-        ranks_gr = ranks.group_by{|x| (x||1)}.map { |k,v| [k,v.size]}.to_h
-        rank_info = [1,2,3,4,5,11].map{|x|  "#{ranks_gr[x]||0}"}.join(' ')
-
-        sum = ranks_gr.map{ |dd| dd[1] }.sum
-      end
-
-      p "--report tid:#{tid} #{rank_info} resps:#{sum}"
-
-      #####calculate last page for max number of responses
-      resps=threads_attr[tid][2]
-
-      page_and_num = PageUtil.calc_last_page(resps+1,20)
-      lpage = (page_and_num[0]-1)*40 rescue 0
-
-      url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
-
-      #out<< "reliable #{ '%0.2f' % reliable} responses:#{all_posts_count} ranks:(#{rank_info})"
-      out<< "reliable #{ '%0.2f' % reliable} responses: #{ diff_responses }"
-
-      thr_title_cleaned = threads_attr[tid] ? threads_attr[tid][0] : tid   
-      out<<"#{indx} #{url} [b]#{thr_title_cleaned}[/b]"
-      out<<""
-
-    end
+    out = []
 
     if false 
       url_templ = "https://bitcointalk.org/index.php?topic=%s.%s"
@@ -138,10 +131,6 @@ class BctThreadsReport
       end
       out<<"------------"
     end    
-
-    @@report_file = REPORT_FILE % [fid] if @@report_file==""
-    File.write("report/"+@@report_file, out.join("\n"))
-
   end
 
   def self.analz_thread_posts_of_users(tid, hours_back =24)

@@ -14,6 +14,9 @@ TID=1847292
 HOURS_BACK=24
 
 
+
+
+
 def show_responses_and_ranks_for_thread(fid,tid)
   from=date_now(HOURS_BACK)
   show_ranks=true
@@ -71,7 +74,6 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
 
   from = date_now(hours_back)
 
-  p tpages = DB[:tpages].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount,:fp_date]).first(20)
 
   responses =  DB[:threads].first(siteid:SID, tid:tid)[:responses]
 
@@ -83,19 +85,30 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
 
   url_templ = "https://bitcointalk.org/index.php?topic=%s.%s"
   url = url_templ % [tid,(lpage-1)*40]
+  
+  tpages = DB[:tpage_ranks].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount,:fp_date,:r1,:r2,:r3,:r4,:r5,:r11]).first(20)
+  
+  all_ranks = [0,0,0,0,0,0,0]
 
-  downl_pages=BCTalkParser.calc_arr_downl_pages(tid, lpage, lcount, from).take(10)
+  tpages.sort_by{|k,v| -k}.each do |pp,data|
+    p pp
+    p ranks = data[2..7]
+    6.times{|ind| all_ranks[ind+1]+=ranks[ind]}
+    break if data[1].to_datetime<from
+  end
 
-  ranks = DB[:posts].filter( Sequel.lit("tid=? and addeddate > ?", tid, from) )
-  .order(:addeddate).select(:addedby,:addedrank,:addeddate).all
+  p all_ranks
+  sum = all_ranks.sum*10
+  points = all_ranks[1]+all_ranks[2]+all_ranks[3]*2+all_ranks[4]*2+all_ranks[5]*2+all_ranks[6]
+  reliable = points/sum.to_f     
 
-  p "---posts count: #{ranks.size}"
-  puts ranks.map { |dd| "#{dd[:addedby]} #{dd[:addedrank]} date: #{dd[:addeddate].strftime("%F %H:%M")}"   }
+  p "sum #{sum} reliable #{reliable}"
 
 end
+
 #BctThreadsReport.analz_thread_posts_of_users_rank1(2009966,48) ##load thr-posts 
 #BCTalkParserAdv.load_thread_before_date(159,1847292,24)
 
-show_responses_and_ranks_for_thread(FID,TID)
+#show_responses_and_ranks_for_thread(FID,TID)
 
-#thread_posts_stats(1847292,24)
+thread_posts_stats(2648389,24)

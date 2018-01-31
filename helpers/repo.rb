@@ -159,14 +159,39 @@ class Repo
     end
     count
   end
-
   def self.insert_into_threads_responses(sid, fid, forum_page_threads)
 
     inserted=0
     DB.transaction do
 
+      forum_page_threads.each do |tt|
+
+        if true #exist[tt[:tid]] != tt[:responses]
+          dd=DateTime.now.new_offset(0/24.0)
+          day= dd.day
+          hour= dd.hour
+
+          rr = {fid:tt[:fid], tid:tt[:tid], responses:tt[:responses],
+            last_post_date:tt[:updated], parsed_at:dd, day:day, hour:hour}
+
+          DB[:threads_responses].insert(rr)
+
+          inserted+=1
+
+        else
+          #p "#{tt[:tid]} exist with same responses #{tt[:responses]}"
+        end
+      end
+    end
+    inserted
+  end
+
+  def self.insert_into_threads_responses_with_check_on_date(sid, fid, forum_page_threads)
+
+    inserted=0
+    DB.transaction do
+
       exist = DB[:threads_responses].filter(fid: fid).to_hash(:tid, :responses)
-      #thread_title = DB[:threads].filter(siteid:sid, fid: fid).to_hash(:tid,:title)
 
       forum_page_threads.each do |tt|
         tid=tt[:tid]
@@ -188,6 +213,26 @@ class Repo
         else
           #p "#{tt[:tid]} exist with same responses #{tt[:responses]}"
         end
+      end
+    end
+    inserted
+  end
+
+  def self.insert_into_user_merits(fid, tid, user_merits)
+
+    inserted=0
+    DB.transaction do
+
+      user_merits.each do |uid, merit|
+
+        dd=DateTime.now.new_offset(0/24.0)
+
+        rr = {fid:fid, tid:tid, uid:uid, merit:merit, date:dd }
+
+        DB[:user_merits].insert(rr)
+
+        inserted+=1
+
       end
     end
     inserted

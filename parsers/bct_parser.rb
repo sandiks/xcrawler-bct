@@ -80,6 +80,7 @@ class BCTalkParser
     Repo.insert_or_update_threads_for_forum(page_threads,SID) if @@need_save
     
     ## save statistics 
+    inserted=0
     inserted=Repo.insert_into_threads_responses(SID, fid, page_threads)
     
     p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"

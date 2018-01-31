@@ -24,12 +24,11 @@ class BCTalkParserAdv
     .reverse_order(:bot_parsed).limit(1).select_map(:bot_parsed).first
 
     return true unless last_parsed
-    last_parsed.to_datetime<date_now(0.2)
+    last_parsed.to_datetime<date_now(1)
   end
 
   def self.save_thread_responses_statistics_FOR_LIST_FORUMS(forums,hours_back)
 
-    #Parallel.map(forums,:in_threads=>3) do |fid|
     forums.each do |fid|
       if need_parse(fid)
         save_thread_responses_statistics(fid,hours_back)
@@ -48,17 +47,18 @@ class BCTalkParserAdv
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
     parsed_dates = DB[:forums_stat].filter(fid:fid).all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }
     
-    p "----------------FORUM: (#{fid}) #{forum_title} hours_back:#{hours}"
-    p "--- last parsed : #{parsed_dates.last(4)}"
-
+    p "----------------FORUM: (#{fid}) #{forum_title} --hours_back:#{hours} --last parsed : #{parsed_dates.last(4)}"
 
     last_page_date = date_now
     #BCTalkParser.from_date = date_now(hours)
 
-
     finish = false
-    start_page.upto(start_page+80) do |pg|
-      break if finish
+    pages = start_page.upto(start_page+80)
+    
+    #pages.each do |pg|
+    Parallel.map(pages,:in_threads=>3) do |pg|
+
+      next if finish
       next if pg<1
 
       loop do
@@ -76,7 +76,7 @@ class BCTalkParserAdv
 
   end
 
-  THREADS_ANALZ_NUM=30
+  THREADS_ANALZ_NUM=20
 
   def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24)
 
@@ -113,9 +113,10 @@ class BCTalkParserAdv
     #tid_list.each do |tid, resps_diff|
       
       tid, resps_diff = rr
-      #next if tid!=421615
+      #next if tid!=2675213
+      
       #p "tid: #{tid}  diff_resps: #{resps_diff}"
-      dd =load_thread_before_date(tid, hours_back)
+      dd =load_thread_pages_before_date(fid,tid, hours_back)
     end
 
     tid_list.map { |e| e[0]  }
@@ -123,18 +124,17 @@ class BCTalkParserAdv
   end
 
 
-  def self.load_thread_before_date(tid, hours_back=12, detailed_log=false)
-
-    p "---(#{tid}) load_thread_before_date ---hours_back #{hours_back}" if detailed_log
-
+  def self.load_thread_pages_before_date(fid, tid, hours_back=12, responses=0)
     from = date_now(hours_back)
     to=date_now(0)
 
     BCTalkParser.set_from_date(hours_back)
 
-    thread_ =  DB[:threads].first(siteid:SID, tid:tid)
-    responses = thread_[:responses]
-    fid = thread_[:fid]
+    if responses==0
+      threads_responses = DB[:threads_responses].filter(tid:tid).order(:parsed_at).last
+      responses = threads_responses[:responses]
+      fid = threads_responses[:fid]
+    end
 
     page_and_num = PageUtil.calc_last_page(responses+1,20)
     lpage = page_and_num[0]
@@ -145,7 +145,7 @@ class BCTalkParserAdv
 
     #check_on_corrected_tpages(tid,lpage)
 
-    downl_pages= calc_arr_downl_pages(tid, lpage, lcount, from).take(8)
+    downl_pages= calc_arr_downl_pages(tid, lpage, lcount, from).take(50)
 
     finished_downl_pages=[]
     ranks_stat_all=Hash.new(0)
@@ -162,6 +162,8 @@ class BCTalkParserAdv
           #data = BCTalkParser.set_opt({rank:3, parse_signature:false}).parse_thread_page(tid, pp[0])
 
           data = parse_page_and_save_to_tpage_ranks(tid, pp[0]) ##  save only user ranks
+
+          p "--parse_page_and_save_to_tpage_ranks tid #{tid} pg #{pp[0]}"
           
           finished_downl_pages<<pp[0]
 
@@ -182,22 +184,30 @@ class BCTalkParserAdv
 
     end ## end each
 
+    ##save users
+    Repo.insert_into_user_merits(fid, tid, BCTalkParserAdv.users_merit_store)
+    Repo.insert_users(users_store.values, 9)    
+
     downloaded_pages_str = finished_downl_pages #downl_pages.map { |pp| "#{pp[0]}_#{pp[1]}" }.join(' ')
 
     if  ranks_stat_all && finished_downl_pages.size>0
       
       dd=[ranks_stat_all[1],ranks_stat_all[2],ranks_stat_all[3],
       ranks_stat_all[4], ranks_stat_all[5], ranks_stat_all[11]]
+
+      responses = 0 
+      ranks_stat_all.each{|k,v| responses+=v}
+      points = ranks_stat_all[1]+ranks_stat_all[2]+ranks_stat_all[3]*2+ranks_stat_all[4]*4+ranks_stat_all[5]*5+ranks_stat_all[11]*6
       
-      sum = dd.sum
-      reliable = 1- (dd[0]+dd[1])/sum.to_f     
-      DB[:threads].filter(tid: tid).update(reliable: reliable) if sum>10
+      sum = responses*6
+      reliable = points/sum.to_f     
+      DB[:threads].filter(tid: tid).update(reliable: reliable) if responses>10
     end
 
     planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
     
     p "---load_thr #{tid} last pg,count: #{page_and_num}".ljust(50)+
-    "planned:#{planned_str.ljust(30)}  down:#{finished_downl_pages} ranks_stat_all: #{dd}" if downl_pages.size>0     
+    "down:#{finished_downl_pages} reliable #{'%0.2f' % reliable} ranks_stat_all: #{dd}" if downl_pages.size>0     
     
     ranks_stat_all
   end
@@ -219,7 +229,7 @@ class BCTalkParserAdv
     #added pre-last pages
     if need_downl_preLast_pages
 
-      (lp_num-1).downto(lp_num-30) do |pg|
+      (lp_num-1).downto(lp_num-100) do |pg|
         break if pg<1
         
         post_count=0
@@ -258,6 +268,12 @@ class BCTalkParserAdv
     date>now ? date-1 : date
   end
 
+  @@users_merit_store=Hash.new(0)
+  @@users_store={}
+
+  def self.users_merit_store; @@users_merit_store; end
+  def self.users_store; @@users_store; end
+
   def self.parse_page_and_save_to_tpage_ranks(tid, page)
 
     return if page<1
@@ -271,6 +287,7 @@ class BCTalkParserAdv
     thread_posts = page_html.css("div#bodyarea > form > table.bordercolor tr[class^='#{post_class}']")
 
     posts =[]
+    users={}
     
     ##parse posts
     thread_posts.map do |post|
@@ -284,15 +301,20 @@ class BCTalkParserAdv
       #user info
       rank=0
       addeduid=0
+      merit=0
       if td1
         link = td1.css('a')[0]
         url = link["href"]
+        addedby = link.text.strip
         addeduid = url.split('=').last.to_i
         rank = detect_user_rank(td1)
+        merit= td1.text.strip.scan(/Merit:\s+\d+/).join().sub('Merit:','').to_i
       end
 
       post_date_str = td2.css('td:nth-child(2) div.smalltext').text
       post_date = parse_post_date(post_date_str)
+      @@users_merit_store[addeduid] = merit if @@users_merit_store[addeduid]<merit
+      @@users_store[addeduid]={siteid:SID, uid: addeduid, name:addedby, rank:rank, merit:merit} unless @@users_store.has_key?(addeduid)
 
       posts<<{
         addeduid:addeduid,
@@ -306,7 +328,8 @@ class BCTalkParserAdv
     first_post_date = posts.first[:addeddate]
 
     grouped_ranks = page_ranks.group_by{|r| r}.map{|r, pp| ["r#{r}", pp.size]}.to_h
-
+   
+ 
     Repo.insert_or_update_tpage_ranks(tid, page, posts.size, first_post_date, grouped_ranks)
     {first_post_date:first_post_date, stat:page_ranks} 
 
@@ -347,8 +370,8 @@ class BCTalkParserAdv
     unless tid_list 
       tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
       .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first] }
-      #p tid_list.map { |e| e[0]  }
     end
+    topics=[]
 
     tid_list.each do |tid, resps_diff|
 
@@ -357,30 +380,44 @@ class BCTalkParserAdv
 
       ranks = DB[:tpage_ranks].filter( Sequel.lit("(tid=? and fp_date > ?)", tid, from) ).select_map([:r1,:r2,:r3,:r4,:r5,:r11])
       
-      all_ranks = [0,0,0,0,0,0]
+      all_ranks = [0,0,0,0,0,0,0]
+      arr_ranks =[]
       ranks.each do |arr|
-        6.times {|t| all_ranks[t] += arr[t]||0 } 
+        arr_ranks<< arr
+        6.times {|t| all_ranks[t+1] += arr[t] } 
       end
 
-      sum = all_ranks.sum
-      sum_r1_r2 = all_ranks[0]+all_ranks[1]
-      next if sum==0
+
+      points = all_ranks[1]+all_ranks[2]+all_ranks[3]*2+all_ranks[4]*4+all_ranks[5]*5+all_ranks[6]*6
       
-      reliable_ff = 1- sum_r1_r2/sum.to_f
-      if sum>5
+      sum = all_ranks.sum*6
+      #p "tid #{tid} points #{points} sum #{sum}"
+      next if sum ==0
+      
+      reliable_ff = points/sum.to_f     
+
+      if sum>36
         if threads_attr[tid]
-          thr_title_cleaned = threads_attr[tid][0].gsub('?', '').strip ####.gsub(/\A[\d_\W]+|[\d_\W]+\Z/, '')
+          thr_title_cleaned = threads_attr[tid][0]
         else
           thr_title_cleaned = tid
         end
         
-        out<<"#{indx} tid: #{tid} ff: #{'%0.2f' % reliable_ff} ranks #{all_ranks}  [b]#{thr_title_cleaned}[/b]"
+        title = "[b]#{thr_title_cleaned}[/b]"
+        stat="tid: #{tid} ff: #{'%0.2f' % reliable_ff} points #{points} sum #{sum} ranks #{all_ranks} "
         DB[:threads].filter(siteid:9, tid: tid).update(reliable: reliable_ff)
       end
+      topics <<{reliable: reliable_ff, responses:resps_diff, title: title, stat: stat }
 
     end
-    out<<"------------"
 
+    topics.sort_by{|dd| -dd[:reliable]}.each do |topic|
+      reliable = topic[:reliable]
+      out<< "reliable #{ '%0.2f' % reliable} responses: #{ topic[:responses] }"
+      out<< "#{topic[:title]}"
+      out<< "#{topic[:stat]}"
+      out<<""
+    end
     @@report_file = "calc_reliable_#{fid}.txt"
     File.write("report/"+@@report_file, out.join("\n"))
 
