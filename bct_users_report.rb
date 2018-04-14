@@ -103,7 +103,7 @@ class BctUsersReport
             thr_title = threads[tid]||tid
             resps = threads_responses[tid]||0
             page_and_num = PageUtil.calc_last_page(resps+1,20)
-            lpage = (page_and_num[0]-1)*40 rescue 0
+            lpage = (page_and_num[0]-1)*20 rescue 0
             
             url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
 

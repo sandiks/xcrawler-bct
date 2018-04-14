@@ -24,9 +24,7 @@ class BctThreadsReport
 
   end
 
-  THREADS_ANALZ_NUM=20
-
-  def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24)
+  def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24, threads_num=20)
 
     from=date_now(hours_back)
 
@@ -36,41 +34,28 @@ class BctThreadsReport
     if unreliable_threads && unreliable_threads.size>0
        threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ? and tid not in ?",fid, from, unreliable_threads)).select_map([:tid,:responses,:last_post_date])    
     else
-       threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).select_map([:tid,:responses,:last_post_date])
+       threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
+       .select_map([:tid,:responses,:last_post_date])
     end
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1}
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
-    .reverse.take(THREADS_ANALZ_NUM)
+    .reverse.take(threads_num)
 
 
   end
 
-  def self.report_response_statistic(fid, tid_list, hours_back =24, show_ranks=false)
+  def self.report_response_statistic(fid, tid_list, hours_back =24, threads_num=20)
 
-    p "---------report_response_statistic --FORUM: (#{fid}) --hours_back:#{hours_back}"
-
-    from = date_now(hours_back)
-    to   = date_now(0)
+    out = []
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
     ##generate
-    out = []
-
-    is_forum = true
-    bold =  is_forum ? "[b]" : "**"
-    bold_end = is_forum ? "[/b]" : "**"
-
-    out<< ""
-    out<< ""
-    out<<"#{bold}forum: (#{fid}) #{forum_title}#{bold_end} "
-    out<<"#{bold}#{from.strftime("%F %H:%M")}  -  #{to.strftime("%F %H:%M")}#{bold_end}"
-    out<<"------------"
 
     indx=0
     unless tid_list
-      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
+      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
       .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first, dd.last] }
     end
 
@@ -79,7 +64,7 @@ class BctThreadsReport
     
       indx+=1
       thread = DB[:threads].first(tid: tid)
-      reliable= thread[:reliable]||1
+      reliable= thread[:reliable]||0
       thr_title = thread[:title]
       last_responses_num = thread[:responses]
       #next if tid!=421615
@@ -87,22 +72,41 @@ class BctThreadsReport
       #####calculate last page for max number of responses
 
       page_and_num = PageUtil.calc_last_page(last_responses_num+1,20)
-      lpage = (page_and_num[0]-1)*40 rescue 0
-      url = "https://bitcointalk.org/index.php?topic=#{tid}.#{lpage}"
+      last_page = (page_and_num[0]-1)*20 rescue 0
+      url = "https://bitcointalk.org/index.php?topic=#{tid}.#{last_page}"
 
       thr_title = itd unless thr_title    
       url = "#{url} [b]#{thr_title}[/b]"
       topics <<{reliable: reliable, responses:diff_responses, url: url}
-      
 
     end
 
+    last_parsed = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed).last
+
+    p "---------report_response_statistic --FORUM: (#{fid}) --from:#{last_parsed.strftime("%F %H:%M")}"
+
+    out<< ""
+    out<<"[b]forum: (#{fid}) #{forum_title}[/b] "
+    out<<"[b]#{last_parsed.strftime("%F %H:%M")}  -  #{date_now.strftime("%F %H:%M")}[/b]"
+    out<<"------------"
+
+    need_sort_by_reliable = true
+
     ## generate report 
-    topics.sort_by{|dd| -dd[:reliable]}.each do |topic|
-      reliable = topic[:reliable]
-      out<< "reliable #{ '%0.2f' % reliable} responses: #{ topic[:responses] }"
-      out<< "#{topic[:url]}"
-      out<<""
+    if need_sort_by_reliable
+
+      topics.sort_by{|dd| -dd[:reliable]}.each do |topic|
+        reliable = topic[:reliable]
+        out<< "reliable #{ '%0.2f' % reliable} responses: #{ topic[:responses] }"
+        out<< "#{topic[:url]}"
+        out<<""
+      end
+
+    else
+      topics.sort_by{|dd| -dd[:responses]}.each do |topic|
+        out<< "responses: #{ topic[:responses] } #{topic[:url]}"
+        out<<""
+      end
     end
 
     @@report_file = REPORT_FILE % [fid] if @@report_file==""
@@ -119,14 +123,11 @@ class BctThreadsReport
     out = []
 
     if false 
-      url_templ = "https://bitcointalk.org/index.php?topic=%s.%s"
-
       out<< "[color=red]UNRELIABLE THREADS!!![/color]"
       unreliable_threads.each do |tid,v|
-        
         page_and_num = PageUtil.calc_last_page(v[2]+1,20)
-        lpage = (page_and_num[0]-1)*40 rescue 0
-        url = url_templ % [tid, lpage]
+        lpage = (page_and_num[0]-1)*20 rescue 0
+        url = "https://bitcointalk.org/index.php?topic=%s.%s" % [tid, lpage]
         out << "#{url} #{v[0].sub('[PRE]','[ PRE]')}" 
       end
       out<<"------------"

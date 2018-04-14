@@ -12,7 +12,6 @@ class BCTalkParser
   SID = 9
   THREAD_PAGE_SIZE =20
 
-  @@need_save= true
   @@log =[]
   @@from_date = DateTime.now.new_offset(0/24.0)
   @@fid=0
@@ -39,7 +38,7 @@ class BCTalkParser
 
   end
 
-  def self.parse_forum(fid, pg=1, downl_threads=false)
+  def self.parse_forum(fid, pg=1, download_thread_pages=false)
 
     @@fid=fid
     pp = (pg>1 ? "#{(pg-1)*40}" : "0")
@@ -77,7 +76,7 @@ class BCTalkParser
     last_date =page_threads.last[:updated]
         
     ## save/ update threads
-    Repo.insert_or_update_threads_for_forum(page_threads,SID) if @@need_save
+    Repo.insert_or_update_threads_for_forum(page_threads,SID)
     
     ## save statistics 
     inserted=0
@@ -85,7 +84,7 @@ class BCTalkParser
     
     p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"
 
-    if downl_threads
+    if download_thread_pages
       old_thread_resps = DB[:threads].filter(siteid:SID, fid: fid).to_hash(:tid,:responses)
       
       load_page_threads_posts(fid, page_threads, old_thread_resps)

@@ -45,9 +45,18 @@ class BCTalkParserAdv
     BCTalkParser.set_from_date(hours) #class_variable_set(:@@from_date, date_now(hours))
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
-    parsed_dates = DB[:forums_stat].filter(fid:fid).all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }
+
+    parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
+    last_parsed_date =  parsed_dates.first.to_datetime
     
-    p "----------------FORUM: (#{fid}) #{forum_title} --hours_back:#{hours} --last parsed : #{parsed_dates.last(4)}"
+    if last_parsed_date > date_now(1)
+      p "---!!! already parsed #{last_parsed_date.strftime("%F %H:%M:%S")}"
+      return
+    end
+
+    parsed_dates_text = parsed_dates.map { |dd| dd.strftime("%F %H:%M:%S") }
+    
+    p "----------------FORUM: (#{fid}) #{forum_title} --hours_back:#{hours} --last parsed : #{parsed_dates_text}"
 
     last_page_date = date_now
     #BCTalkParser.from_date = date_now(hours)
@@ -68,29 +77,29 @@ class BCTalkParserAdv
           break
         rescue  =>ex
           puts "#{fid} #{pg} #{ex} "
-          sleep 5
+          sleep 2
         end
       end
     end
-    DB[:forums_stat].insert({sid:SID, fid:fid, bot_action:"load_thread_responses_to_stat_thread hours_back:#{hours}" , bot_parsed: date_now})
+    DB[:forums_stat].insert({sid:SID, fid:fid, bot_action:"---save_thread_responses_statistics ---hours_back:#{hours}" , bot_parsed: date_now})
 
   end
 
-  THREADS_ANALZ_NUM=20
 
-  def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24)
+  def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24, threads_num=20)
 
     from=date_now(hours_back)
-    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).select_map([:tid,:responses,:last_post_date])
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
+    .select_map([:tid,:responses,:last_post_date])
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1}
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
-    .reverse.take(THREADS_ANALZ_NUM)
+    .reverse.take(threads_num)
 
   end
 
-  def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24)
+  def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24, threads_num=20)
 
     from=date_now(hours_back)
     to=date_now(0)
@@ -105,18 +114,21 @@ class BCTalkParserAdv
     
     tid_list = nil
     unless tid_list
-      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
+      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
       .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first] }
     end
 
-    Parallel.map(tid_list,:in_threads=>1) do |rr,idx|
-    #tid_list.each do |tid, resps_diff|
+    only_3_Pages = threads_num>30
+
+    #Parallel.map(tid_list,:in_threads=>1) do |tid,resps_diff|
+    tid_list.each do |tid,resps_diff|
       
-      tid, resps_diff = rr
       #next if tid!=2675213
       
       #p "tid: #{tid}  diff_resps: #{resps_diff}"
-      dd =load_thread_pages_before_date(fid,tid, hours_back)
+      dd =load_thread_pages_before_date(fid,tid, hours_back, 0, only_3_Pages)
+      sleep(1)
+
     end
 
     tid_list.map { |e| e[0]  }
@@ -124,7 +136,8 @@ class BCTalkParserAdv
   end
 
 
-  def self.load_thread_pages_before_date(fid, tid, hours_back=12, responses=0)
+  def self.load_thread_pages_before_date(fid, tid, hours_back=12, responses=0, load_only_last_3Pages = true )
+    
     from = date_now(hours_back)
     to=date_now(0)
 
@@ -150,39 +163,49 @@ class BCTalkParserAdv
     finished_downl_pages=[]
     ranks_stat_all=Hash.new(0)
 
-    fisrt_date_less = false
+    break_downl_thread = false
+    thread_start_date = date_now(7*24)
 
     downl_pages.each do |pp|
 
-      break if fisrt_date_less
+      break if break_downl_thread
+
+      loop_count = 0
 
       loop do
-          
         begin
-          #data = BCTalkParser.set_opt({rank:3, parse_signature:false}).parse_thread_page(tid, pp[0])
+          loop_count+=1
+          if loop_count>3
+            break_downl_thread = true
+            break
+          end
 
           data = parse_page_and_save_to_tpage_ranks(tid, pp[0]) ##  save only user ranks
 
-          p "--parse_page_and_save_to_tpage_ranks tid #{tid} pg #{pp[0]}"
+          p "---- parse_page_and_save_to_tpage_ranks tid #{tid} pg #{pp[0]} fp_date #{data[:first_post_date].strftime("%F %H:%M")}"
           
           finished_downl_pages<<pp[0]
 
           ranks_stat= data[:stat].group_by{|x| x}.map{|k,vv| [k,vv.size]}.to_h
-          #p "--load page #{tid} pg #{pp[0]} rank stats #{ranks_stat}" if detailed_log
-
           [1,2,3,4,5,11].each{|x| ranks_stat_all[x]+= (ranks_stat[x]||0)}
-          fisrt_date_less =  data[:first_post_date] <from
+          
+          break_downl_thread =  data[:first_post_date] < thread_start_date
+          
+          if load_only_last_3Pages 
+            if pp[0]==1 || finished_downl_pages.size>=3 
+              break_downl_thread = true
+            end
+          end
 
           break
-
         rescue =>ex
           p "--err tid #{tid} pg #{pp} --#{ex}"
           #puts ex.backtrace
+          sleep(2)
         end
-
       end
 
-    end ## end each
+    end ## downl_pages
 
     ##save users
     Repo.insert_into_user_merits(fid, tid, BCTalkParserAdv.users_merit_store)
@@ -190,27 +213,31 @@ class BCTalkParserAdv
 
     downloaded_pages_str = finished_downl_pages #downl_pages.map { |pp| "#{pp[0]}_#{pp[1]}" }.join(' ')
 
-    if  ranks_stat_all && finished_downl_pages.size>0
-      
+    if  ranks_stat_all && finished_downl_pages.size>0      
       dd=[ranks_stat_all[1],ranks_stat_all[2],ranks_stat_all[3],
       ranks_stat_all[4], ranks_stat_all[5], ranks_stat_all[11]]
 
-      responses = 0 
-      ranks_stat_all.each{|k,v| responses+=v}
-      points = ranks_stat_all[1]+ranks_stat_all[2]+ranks_stat_all[3]*2+ranks_stat_all[4]*4+ranks_stat_all[5]*5+ranks_stat_all[11]*6
-      
-      sum = responses*6
-      reliable = points/sum.to_f     
-      DB[:threads].filter(tid: tid).update(reliable: reliable) if responses>10
+      reliable = calc_reliable(ranks_stat_all)     
+      DB[:threads].filter(tid: tid).update(reliable: reliable) if finished_downl_pages.size>=2
     end
 
     planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
     
-    p "---load_thr #{tid} last pg,count: #{page_and_num}".ljust(50)+
+    p "--load_thr #{tid} last pg,count: #{page_and_num}".ljust(50)+
     "down:#{finished_downl_pages} reliable #{'%0.2f' % reliable} ranks_stat_all: #{dd}" if downl_pages.size>0     
     
     ranks_stat_all
   end
+
+  def self.calc_reliable(ranks_stat_all)
+    
+      responses = 0 
+      ranks_stat_all.each{|k,v| responses+=v}
+      sum = responses*6
+
+      points = ranks_stat_all[1]+ranks_stat_all[2]+ranks_stat_all[3]*2+ranks_stat_all[4]*4+ranks_stat_all[5]*5+ranks_stat_all[11]*6
+      reliable = points/sum.to_f     
+  end  
 
   def self.calc_arr_downl_pages(tid, lp_num, lp_post_count, start_date)
     downl_pages=[]
@@ -224,7 +251,7 @@ class BCTalkParserAdv
       first_postdate = tpages[lp_num][1]
       need_downl_preLast_pages = first_postdate && first_postdate.to_datetime> start_date
     end
-    downl_pages<<[lp_num,mc0, first_postdate] if lp_post_count-mc0>=2
+    downl_pages<<[lp_num, mc0, first_postdate] if lp_post_count-mc0>=2
 
     #added pre-last pages
     if need_downl_preLast_pages

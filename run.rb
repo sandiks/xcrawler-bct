@@ -18,32 +18,30 @@ require_relative  'bct_threads_report'
 ##    1     Bitcoin Discussion
 ##    72     Альтернативные криптовалюты
 
-FORUMS=[67,1,159,240]
+FORUMS=[159,240,67,72,1]
 HOURS_BACK=78
 
 def stat
 
-  hours=24
+  hours=3*24
   #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
   BCTalkParserAdv.save_thread_responses_statistics_FOR_LIST_FORUMS(FORUMS, hours)  
 end
 
 def calc_reliablitiy(fid)
   
-  hours=48
+  hours=4*24
   tid_list= nil
   
-  BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
   
   if true
-    
-    BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours)
+    #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
+    BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours, 60) ## 60 threads
     #BCTalkParserAdv.calc_reliability_for_threads(fid,nil,hours)
-    
-    BctThreadsReport.report_response_statistic(fid, tid_list, hours, false) ##show 30 threads
-    #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
-
   end
+
+  BctThreadsReport.report_response_statistic(fid, tid_list, hours, 40) ##show 40 threads
+  #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
 
 end
 
