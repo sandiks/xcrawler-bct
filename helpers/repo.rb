@@ -319,10 +319,15 @@ class Repo
 
     count=0
     DB.transaction do
+
+      db_user_bounties = DB[:bct_user_bounty].to_hash(:uid,:bo_name)
+
       user_bounties.each do |bb|
+        uid= bb[:uid]
+        bounty_name = bb[:bo_name]
+        
         begin
-          rec = DB[:bct_user_bounty].filter(uid:bb[:uid], bo_name: bb[:bo_name]).first
-          if !rec
+          if db_user_bounties[uid] != bounty_name
             DB[:bct_user_bounty].insert(bb.merge({created_at:DateTime.now.new_offset(3/24.0)}))
             count+=1
           end        

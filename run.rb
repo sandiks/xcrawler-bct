@@ -3,6 +3,7 @@ require_relative  'parsers/bct_parser_adv'
 require_relative  'parsers/bct_parser'
 require_relative  'bct_users_report'
 require_relative  'bct_threads_report'
+require_relative  'bct_bounty_report'
 
 ##    159   Announcements (Altcoins)
 ##    240   Tokens (Altcoins)
@@ -21,28 +22,35 @@ require_relative  'bct_threads_report'
 FORUMS=[159,240,67,72,1]
 HOURS_BACK=78
 
-def stat
+def  all_forums_check
 
-  hours=3*24
+  hours=2*24
   #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
   BCTalkParserAdv.save_thread_responses_statistics_FOR_LIST_FORUMS(FORUMS, hours)  
 end
 
-def calc_reliablitiy(fid)
+def fast_check(fid)
+  hours=3*24
+  #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
   
-  hours=4*24
-  tid_list= nil
-  
-  
-  if true
-    #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
-    BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours, 60) ## 60 threads
-    #BCTalkParserAdv.calc_reliability_for_threads(fid,nil,hours)
-  end
+  BctThreadsReport.report_response_statistic(fid, hours, 40, false) ##show 40 threads
+end
 
-  BctThreadsReport.report_response_statistic(fid, tid_list, hours, 40) ##show 40 threads
+def load_calc_report(fid)
+  
+  hours=3*24
+
+  BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
+  
+  BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours, 80) 
+  BctThreadsReport.report_response_statistic(fid, hours, 30, true) ##show 40 threads
   #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
+end
 
+def bounty_report(fid)
+  
+  #BctBountyReport.print_grouped_by_bounty(fid)
+  BctBountyReport.print_users_bounty(fid)
 end
 
 def merit(fid)
@@ -99,8 +107,12 @@ hours = ARGV[2].to_i
 
 case ARGV[0]
 
-  when 'stat'; stat
-  when 'calc'; calc_reliablitiy(fid)
+  when 'all_forums_check'; all_forums_check
+
+  when 'fast_check'; fast_check(fid)
+  when 'calc'; load_calc_report(fid)
+  when 'bounty'; bounty_report(fid)
+
   when 'merit'; merit(fid)
   when 'clean_table'; clean_table
 

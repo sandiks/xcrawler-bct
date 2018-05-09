@@ -49,8 +49,8 @@ class BCTalkParserAdv
     parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
     last_parsed_date =  parsed_dates.first.to_datetime
     
-    if last_parsed_date > date_now(1)
-      p "---!!! already parsed #{last_parsed_date.strftime("%F %H:%M:%S")}"
+    if last_parsed_date > date_now(8)
+      p "---!!! already parsed 3 hours ago#{last_parsed_date.strftime("%F %H:%M:%S")}"
       return
     end
 
@@ -93,7 +93,7 @@ class BCTalkParserAdv
     .select_map([:tid,:responses,:last_post_date])
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <1000 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
     .reverse.take(threads_num)
 
@@ -119,15 +119,15 @@ class BCTalkParserAdv
     end
 
     only_3_Pages = threads_num>30
+    indx=0
 
-    #Parallel.map(tid_list,:in_threads=>1) do |tid,resps_diff|
     tid_list.each do |tid,resps_diff|
       
       #next if tid!=2675213
-      
-      #p "tid: #{tid}  diff_resps: #{resps_diff}"
+      indx+=1; p "--[#{indx}] tid: #{tid} resp_diff: #{resps_diff}"
+
       dd =load_thread_pages_before_date(fid,tid, hours_back, 0, only_3_Pages)
-      sleep(1)
+      #sleep(1)
 
     end
 
@@ -160,12 +160,13 @@ class BCTalkParserAdv
 
     downl_pages= calc_arr_downl_pages(tid, lpage, lcount, from).take(50)
 
-    finished_downl_pages=[]
-    ranks_stat_all=Hash.new(0)
+    all_ranks_stat = Hash.new(0)
 
     break_downl_thread = false
     thread_start_date = date_now(7*24)
 
+    finished_downl_pages=[]
+    
     downl_pages.each do |pp|
 
       break if break_downl_thread
@@ -174,6 +175,8 @@ class BCTalkParserAdv
 
       loop do
         begin
+
+          #prevent from infinite looping 
           loop_count+=1
           if loop_count>3
             break_downl_thread = true
@@ -187,55 +190,56 @@ class BCTalkParserAdv
           finished_downl_pages<<pp[0]
 
           ranks_stat= data[:stat].group_by{|x| x}.map{|k,vv| [k,vv.size]}.to_h
-          [1,2,3,4,5,11].each{|x| ranks_stat_all[x]+= (ranks_stat[x]||0)}
+          [1,2,3,4,5,11].each{|x| all_ranks_stat[x]+= (ranks_stat[x]||0)}
           
           break_downl_thread =  data[:first_post_date] < thread_start_date
           
           if load_only_last_3Pages 
-            if pp[0]==1 || finished_downl_pages.size>=3 
+            if pp[0]==1 || finished_downl_pages.size>=2 
               break_downl_thread = true
             end
           end
 
           break
+
         rescue =>ex
           p "--err tid #{tid} pg #{pp} --#{ex}"
           #puts ex.backtrace
           sleep(2)
         end
+
       end
 
     end ## downl_pages
 
-    ##save users
-    Repo.insert_into_user_merits(fid, tid, BCTalkParserAdv.users_merit_store)
+    #Repo.insert_into_user_merits(fid, tid, BCTalkParserAdv.users_merit_store)
     Repo.insert_users(users_store.values, 9)    
 
     downloaded_pages_str = finished_downl_pages #downl_pages.map { |pp| "#{pp[0]}_#{pp[1]}" }.join(' ')
 
-    if  ranks_stat_all && finished_downl_pages.size>0      
-      dd=[ranks_stat_all[1],ranks_stat_all[2],ranks_stat_all[3],
-      ranks_stat_all[4], ranks_stat_all[5], ranks_stat_all[11]]
+    if  all_ranks_stat && finished_downl_pages.size>0      
+      dd=[all_ranks_stat[1],all_ranks_stat[2],all_ranks_stat[3],
+      all_ranks_stat[4], all_ranks_stat[5], all_ranks_stat[11]]
 
-      reliable = calc_reliable(ranks_stat_all)     
+      reliable = calc_reliable(all_ranks_stat)     
       DB[:threads].filter(tid: tid).update(reliable: reliable) if finished_downl_pages.size>=2
     end
 
     planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
     
     p "--load_thr #{tid} last pg,count: #{page_and_num}".ljust(50)+
-    "down:#{finished_downl_pages} reliable #{'%0.2f' % reliable} ranks_stat_all: #{dd}" if downl_pages.size>0     
+    "down:#{finished_downl_pages} reliable #{'%0.2f' % reliable} all_ranks_stat: #{dd}" if downl_pages.size>0     
     
-    ranks_stat_all
+    all_ranks_stat
   end
 
-  def self.calc_reliable(ranks_stat_all)
+  def self.calc_reliable(all_ranks_stat)
     
       responses = 0 
-      ranks_stat_all.each{|k,v| responses+=v}
+      all_ranks_stat.each{|k,v| responses+=v}
       sum = responses*6
 
-      points = ranks_stat_all[1]+ranks_stat_all[2]+ranks_stat_all[3]*2+ranks_stat_all[4]*4+ranks_stat_all[5]*5+ranks_stat_all[11]*6
+      points = all_ranks_stat[1]+all_ranks_stat[2]+all_ranks_stat[3]*2+all_ranks_stat[4]*4+all_ranks_stat[5]*5+all_ranks_stat[11]*6
       reliable = points/sum.to_f     
   end  
 
@@ -301,6 +305,7 @@ class BCTalkParserAdv
   def self.users_merit_store; @@users_merit_store; end
   def self.users_store; @@users_store; end
 
+
   def self.parse_page_and_save_to_tpage_ranks(tid, page)
 
     return if page<1
@@ -315,7 +320,11 @@ class BCTalkParserAdv
 
     posts =[]
     users={}
-    
+
+    need_parse_signature=true
+    bounties={}
+    user_bounty={}
+
     ##parse posts
     thread_posts.map do |post|
 
@@ -338,6 +347,33 @@ class BCTalkParserAdv
         merit= td1.text.strip.scan(/Merit:\s+\d+/).join().sub('Merit:','').to_i
       end
 
+      #parse signature
+      if need_parse_signature && sign_tr && (links = sign_tr.css('a'))
+
+        grouped_domains = links.group_by do |ll|
+          link = ll['href'].gsub(' ','').strip
+          begin
+            URI.parse( link ).host.split('.').last(2).join('.') 
+          rescue
+            dmn = link.sub(/^https?\:\/\/(www.)?/,'').split('/').first
+            dmn ? dmn.strip : "bitcointalk.org/error"
+          end
+        end
+
+        domains = grouped_domains
+        .sort_by{|k,v| k.include?("bitcointalk.org") ? 0 : -v.size}
+        .map { |k,v| v.size>1 ? k : v.map{ |ll| ll['href'].sub(/^https?\:\/\/(www.)?/,'') }.join('|') }
+        
+        kk = domains.first
+        #p "bounty:  #{kk}".ljust(60)+"#{addedby}"
+        
+        if kk && !kk.strip.empty? 
+          bounties[kk] = { name:kk, descr: domains.join('|')} if !bounties.has_key?(kk) 
+          user_bounty[addeduid] = {uid:addeduid, bo_name:kk} if !user_bounty.has_key?(addeduid)
+        end
+      end
+
+
       post_date_str = td2.css('td:nth-child(2) div.smalltext').text
       post_date = parse_post_date(post_date_str)
       @@users_merit_store[addeduid] = merit if @@users_merit_store[addeduid]<merit
@@ -358,6 +394,9 @@ class BCTalkParserAdv
    
  
     Repo.insert_or_update_tpage_ranks(tid, page, posts.size, first_post_date, grouped_ranks)
+    Repo.save_user_bounty(user_bounty.values, SID)
+
+    
     {first_post_date:first_post_date, stat:page_ranks} 
 
   end

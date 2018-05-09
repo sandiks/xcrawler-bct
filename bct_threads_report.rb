@@ -39,14 +39,14 @@ class BctThreadsReport
     end
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <1000 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
     .reverse.take(threads_num)
 
 
   end
 
-  def self.report_response_statistic(fid, tid_list, hours_back =24, threads_num=20)
+  def self.report_response_statistic(fid, hours_back =24, threads_num=40, need_sort_by_reliable=true)
 
     out = []
 
@@ -54,10 +54,9 @@ class BctThreadsReport
     ##generate
 
     indx=0
-    unless tid_list
-      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
-      .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first, dd.last] }
-    end
+    
+    tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
+    .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first, dd.last] }
 
     topics=[]
     tid_list.each do |tid, diff_responses, last_responses_num|
@@ -65,7 +64,7 @@ class BctThreadsReport
       indx+=1
       thread = DB[:threads].first(tid: tid)
       reliable= thread[:reliable]||0
-      thr_title = thread[:title]
+      thr_title = thread[:title].gsub('??','')
       last_responses_num = thread[:responses]
       #next if tid!=421615
  
@@ -89,8 +88,6 @@ class BctThreadsReport
     out<<"[b]forum: (#{fid}) #{forum_title}[/b] "
     out<<"[b]#{last_parsed.strftime("%F %H:%M")}  -  #{date_now.strftime("%F %H:%M")}[/b]"
     out<<"------------"
-
-    need_sort_by_reliable = true
 
     ## generate report 
     if need_sort_by_reliable
