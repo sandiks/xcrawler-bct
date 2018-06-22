@@ -4,11 +4,6 @@
 ## Installation
 
 1. bundle install
-2. to run crawler execute "ruby run.rb run" 
+2. to run crawler execute "ruby run.rb calc FORUM_ID" 
 
 
-## Development
-
-TODO: Write development instructions here
-
-## commands

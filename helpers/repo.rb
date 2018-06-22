@@ -218,23 +218,23 @@ class Repo
     inserted
   end
 
-  def self.insert_into_user_merits(fid, tid, user_merits)
+  def self.insert_into_user_merits(user_merits)
 
     inserted=0
     DB.transaction do
+      dbusers = DB[:user_merits].to_hash(:uid,:merit)
 
       user_merits.each do |uid, merit|
 
         dd=DateTime.now.new_offset(0/24.0)
-
-        rr = {fid:fid, tid:tid, uid:uid, merit:merit, date:dd }
-
-        DB[:user_merits].insert(rr)
-
-        inserted+=1
-
+        if !dbusers[uid] || dbusers[uid]!=merit
+          DB[:user_merits].insert({uid:uid, merit:merit, date:dd })
+          #p "inserted #{uid}"
+          inserted+=1
+        end
       end
     end
+
     inserted
   end
 
@@ -269,17 +269,20 @@ class Repo
     count=0
     DB.transaction do
 
-      dbusers = DB[:users].filter(siteid:sid).to_hash(:uid,:rank)
+      dbusers = DB[:users].to_hash(:uid,:rank)
 
       users.each do |us|
+        uid = us[:uid]
+        next if !uid
+
         begin
-          if us[:uid] && !dbusers.key?(us[:uid])
+          if !dbusers.has_key?(uid)
             DB[:users].insert( us.merge({created_at:DateTime.now.new_offset(3/24.0)}) )
             count+=1
           else
-            if !dbusers[us[:uid]] || dbusers[us[:uid]]!=us[:rank]
-              #p "[update user rank #{us[:uid]}]  old:#{dbusers[us[:uid]]} new:#{us[:rank]}"
-              #DB[:users].filter(siteid:sid, uid: us[:uid]).update(rank: us[:rank])
+            if dbusers[uid]!=us[:rank]
+              #p "[update user rank #{uid}]  old:#{dbusers[uid]} new:#{us[:rank]}"
+              DB[:users].filter(uid: uid).update(rank: us[:rank])
             end
           end
         rescue =>ex
@@ -401,12 +404,9 @@ class Repo
   def self.insert_or_update_tpage_ranks(tid, page, count, first_post_date, grouped_ranks)
     return if page<1
 
-    #update table[tpages] with post count on page
-    rec = DB[:tpage_ranks].where({ tid:tid, page:page })
-    
+    rec = DB[:tpage_ranks].where({ tid:tid, page:page })    
     #p "update tpage #{rec.sql}"
     upd =rec.update({postcount:count,fp_date: first_post_date}.merge(grouped_ranks))
-
     if 1 != upd 
       DB[:tpage_ranks].insert({tid:tid, page:page, postcount:count, fp_date: first_post_date}.merge(grouped_ranks))
     end

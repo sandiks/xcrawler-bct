@@ -80,9 +80,9 @@ class BCTalkParser
     
     ## save statistics 
     inserted=0
-    inserted=Repo.insert_into_threads_responses(SID, fid, page_threads)
+    inserted =Repo.insert_into_threads_responses(SID, fid, page_threads)
     
-    p "[parse_forum] fid:#{fid}  pg:#{pg} last_date:#{last_date.strftime('%F %H:%M:%S')} inserted:#{inserted}"
+    p "[parse_forum] fid-pg: #{fid}-#{pg} last_date: #{last_date.strftime('%F %H:%M:%S')}"
 
     if download_thread_pages
       old_thread_resps = DB[:threads].filter(siteid:SID, fid: fid).to_hash(:tid,:responses)

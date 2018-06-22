@@ -13,16 +13,13 @@ class BctUsersReport
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
   
 
-  def self.report_users_sorted_by_merit_for_day(fid_arr, hours_back =24)
+  def self.report_users_sorted_by_merit_for_day(hours_back =24)
 
-    fid = fid_arr.join('_')
-
-    p "---------report_users_sorted_bymerit_for_day --FORUM: (#{fid}) --hours_back:#{hours_back}"
+    p "---------report_users_sorted_bymerit_for_day  --hours_back:#{hours_back}"
 
     from = date_now(hours_back)
     to   = date_now(0)
 
-    forum_title = DB[:forums].filter(fid:fid_arr).select_map(:title).join('<br/>') rescue "no forum"
     user_names = DB[:users].to_hash(:uid, :name)
 
     ##generate
@@ -34,14 +31,12 @@ class BctUsersReport
 
     out<< ""
     out<< ""
-    out<<"#{bold} #{forum_title}#{bold_end} "
     out<<"#{bold}#{from.strftime("%F %H:%M")}  -  #{to.strftime("%F %H:%M")}#{bold_end}"
     out<<"------------"
 
     indx=0
 
-    #user_merits = DB[:user_merits].filter(Sequel.lit("date > ?", from))
-    user_merits = DB[:user_merits].filter(Sequel.lit("fid in ? and date > ?",fid_arr, from))
+    user_merits = DB[:user_merits].filter(Sequel.lit("date > ?", from))
     .select_map([:uid,:merit,:date])
 
     sorted_user_merits = user_merits.group_by{|dd| dd[0]}
@@ -60,7 +55,7 @@ class BctUsersReport
       out<<""
     end
 
-    File.write("report/report_user_mertits_#{fid}.html", out.join("\n"))
+    File.write("report/report_user_mertits.html", out.join("\n"))
 
   end
 

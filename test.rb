@@ -15,8 +15,6 @@ HOURS_BACK=24
 
 
 
-
-
 def show_responses_and_ranks_for_thread(fid,tid)
   from=date_now(HOURS_BACK)
   show_ranks=true
@@ -74,7 +72,6 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
 
   from = date_now(hours_back)
 
-
   responses =  DB[:threads].first(siteid:SID, tid:tid)[:responses]
 
 
@@ -106,9 +103,23 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
 
 end
 
+def test_last_parsed_date_and_current_date
+    fid = 240
+    now = date_now(0)
+
+    parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
+    last_parsed_date =  parsed_dates.last.to_datetime
+    #p now-last_parsed_date
+    diff =  (now.to_time - last_parsed_date.to_time) / 3_600
+    p diff.round
+end
+
+test_last_parsed_date_and_current_date
+
 #BctThreadsReport.analz_thread_posts_of_users_rank1(2009966,48) ##load thr-posts 
 #BCTalkParserAdv.load_thread_before_date(159,1847292,24)
 
 #show_responses_and_ranks_for_thread(FID,TID)
 
-thread_posts_stats(2648389,24)
+#thread_posts_stats(2648389,24)
+#Repo.insert_into_user_merits({19695 => 10})

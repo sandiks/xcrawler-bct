@@ -28,18 +28,15 @@ class BctThreadsReport
 
     from=date_now(hours_back)
 
-    unreliable_threads = nil
+    unreliable_threads = []
     #unreliable_threads = DB[:threads].filter(Sequel.lit("fid=? and reliable<0.3",fid)).select_map(:tid)
-
-    if unreliable_threads && unreliable_threads.size>0
-       threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ? and tid not in ?",fid, from, unreliable_threads)).select_map([:tid,:responses,:last_post_date])    
-    else
-       threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
-       .select_map([:tid,:responses,:last_post_date])
-    end
+    #if unreliable_threads.any?  Sequel.lit("fid=? and last_post_date > ? and tid not in ?",fid, from, unreliable_threads)
+    
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
+    .select_map([:tid,:responses,:last_post_date])
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <1000 } }
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
     .reverse.take(threads_num)
 
@@ -49,6 +46,7 @@ class BctThreadsReport
   def self.report_response_statistic(fid, hours_back =24, threads_num=40, need_sort_by_reliable=true)
 
     out = []
+    from=date_now(hours_back)
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
     ##generate
@@ -86,7 +84,7 @@ class BctThreadsReport
 
     out<< ""
     out<<"[b]forum: (#{fid}) #{forum_title}[/b] "
-    out<<"[b]#{last_parsed.strftime("%F %H:%M")}  -  #{date_now.strftime("%F %H:%M")}[/b]"
+    out<<"[b]#{from.strftime("%F %H:%M")}  -  #{date_now.strftime("%F %H:%M")}[/b]"
     out<<"------------"
 
     ## generate report 
