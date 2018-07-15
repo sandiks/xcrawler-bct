@@ -41,7 +41,7 @@ class BctBountyReport
   def self.print_grouped_by_bounty(hours=24)
 
     p "report print_grouped_by_bounty"
-    from=DateTime.now.new_offset(0/24.0)-hours/24.0
+    from=date_now(hours)
 
     user_bounties = DB[:bct_user_bounty]
     .join(:users, :uid=>:bct_user_bounty__uid)
@@ -79,7 +79,7 @@ class BctBountyReport
   def self.print_changed_bounty(hours=24)
 
     p "report print_changed_bounty"
-    from=DateTime.now.new_offset(0/24.0)-hours/24.0
+    from=date_now(hours)
 
     unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
     user_bounties = DB[:bct_user_bounty].select_map([:uid, :bo_name, :created_at])
@@ -110,10 +110,10 @@ class BctBountyReport
   def self.print_changed_and_grouped(hours=24)
 
     p "report print_changed_bounty"
-    from=DateTime.now.new_offset(0/24.0)-hours/24.0
+    from=date_now(45*24)
 
     unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
-    user_bounties = DB[:bct_user_bounty].select_map([:uid, :bo_name, :created_at])
+    user_bounties = DB[:bct_user_bounty].where{created_at>from}.select_map([:uid, :bo_name, :created_at])
 
     res=[]
     ranks_names = [[3,'full_member'],[4,'sr_member'],[5,'hero'],[11,'legend']].to_h
@@ -121,7 +121,7 @@ class BctBountyReport
     bounty_and_users = Hash.new {|h,k| h[k] = [] } #Hash.new([])
 
     user_bounties
-    .select{|uid, bname| (unames[uid][1]||0)>3}
+    .select{|uid, bname| (unames[uid][1]||0)>2}
     .group_by{|dd| dd[0]}
     .sort_by{|uid, list_bounty_name| -(unames[uid][1]||0)}
     .each do |uid, list_bounty_name|

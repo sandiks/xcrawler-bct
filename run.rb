@@ -7,6 +7,7 @@ require_relative  'bct_bounty_report'
 
 ##    159   Announcements (Altcoins)
 ##    240   Tokens (Altcoins)
+##    160   Mining (Altcoins)
 
 ##    1     Bitcoin Discussion
 ##    52    Services
@@ -19,35 +20,35 @@ require_relative  'bct_bounty_report'
 ##    198   Service Discussion (Altcoins)
 ##    212   Micro Earnings
 
-FORUMS=[83,67,72,1]
+FORUMS=[160,83,67,72,1]
 HOURS_BACK=78
 
 def  all_forums_check
 
   hours=2*24
-
   #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
   BCTalkParserAdv.save_thread_responses_statistics_FOR_LIST_FORUMS(FORUMS, hours)  
 end
 
+def load_calc_report(fid)
+  
+  hours = 3*24
+  BCTalkParserAdv.save_thread_responses_statistics(fid, 24)  
+  
+  BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid, hours, 120) 
+  BctThreadsReport.report_response_statistic(fid, hours, 60, true)
+  #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
+
+end
+
+
 def fast_check(fid)
-  hours =2*24
+  hours =3*24
   
-  BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
-  
+  #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
   BctThreadsReport.report_response_statistic(fid, hours, 100, false) ##show 40 threads
 end
 
-def load_calc_report(fid)
-  
-  hours =48
-
-  BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
-  
-  BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid,hours, 80) 
-  BctThreadsReport.report_response_statistic(fid, hours, 30, true)
-  #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
-end
 
 def load_thread_and_report_post
   fid=
@@ -76,7 +77,7 @@ DB = Repo.get_db
 def date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
 def clean_table
-  from=date_now(24*7)
+  from=date_now(24*5)
   p DB[:threads_responses].where{parsed_at<from}.delete
 end
 

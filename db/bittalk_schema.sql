@@ -1,8 +1,8 @@
--- MySQL dump 10.16  Distrib 10.1.28-MariaDB, for Linux (x86_64)
+-- MySQL dump 10.16  Distrib 10.1.33-MariaDB, for Linux (x86_64)
 --
 -- Host: localhost    Database: bittalk
 -- ------------------------------------------------------
--- Server version	10.1.28-MariaDB
+-- Server version	10.1.33-MariaDB
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -137,17 +137,16 @@ DROP TABLE IF EXISTS `posts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `posts` (
-  `mid` int(11) NOT NULL,
   `siteid` int(11) NOT NULL,
+  `mid` int(11) NOT NULL,
+  `tid` int(11) NOT NULL,
   `body` mediumtext,
   `addedby` varchar(50) DEFAULT NULL,
   `addeduid` int(11) DEFAULT NULL,
   `addedrank` tinyint(4) DEFAULT NULL,
   `activity` tinyint(4) DEFAULT NULL,
   `addeddate` datetime DEFAULT NULL,
-  `tid` int(11) NOT NULL,
   `first` int(11) DEFAULT '0',
-  `title` varchar(255) DEFAULT NULL,
   `marks` varchar(255) DEFAULT NULL,
   `pnum` int(11) DEFAULT NULL,
   PRIMARY KEY (`mid`,`siteid`,`tid`),
@@ -204,9 +203,9 @@ CREATE TABLE `threads` (
   `responses` int(11) DEFAULT NULL,
   `descr` char(100) DEFAULT NULL,
   `bot_updated` datetime DEFAULT NULL,
-  `sticked` int(11) DEFAULT NULL,
   `bot_tracked` int(11) DEFAULT NULL,
   `last_viewed` datetime DEFAULT NULL,
+  `reliable` float DEFAULT NULL,
   PRIMARY KEY (`tid`,`siteid`,`fid`),
   KEY `indx_threads_sid_fid_tid` (`fid`,`siteid`,`tid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -220,37 +219,37 @@ DROP TABLE IF EXISTS `threads_responses`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `threads_responses` (
-  `sid` int(11) DEFAULT NULL,
   `fid` int(11) DEFAULT NULL,
   `tid` int(11) DEFAULT NULL,
   `responses` int(11) DEFAULT NULL,
   `last_post_date` datetime DEFAULT NULL,
   `parsed_at` datetime DEFAULT NULL,
-  KEY `idnx_fid_stat_threads` (`fid`)
+  `day` tinyint(4) DEFAULT NULL,
+  `hour` tinyint(4) DEFAULT NULL,
+  KEY `fid_index` (`fid`),
+  KEY `last_post_date_index` (`last_post_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `threads_stat`
+-- Table structure for table `tpage_ranks`
 --
 
-DROP TABLE IF EXISTS `threads_stat`;
+DROP TABLE IF EXISTS `tpage_ranks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `threads_stat` (
-  `fid` int(11) DEFAULT NULL,
-  `tid` int(11) DEFAULT NULL,
-  `added` datetime DEFAULT NULL,
-  `start_date` datetime DEFAULT NULL,
-  `end_date` datetime DEFAULT NULL,
-  `last_page` smallint(6) DEFAULT NULL,
-  `description` tinytext COLLATE utf8mb4_unicode_ci,
-  `r1_count` smallint(6) DEFAULT NULL,
-  `r2_count` smallint(6) DEFAULT NULL,
-  `r3_count` smallint(6) DEFAULT NULL,
-  `r4_count` smallint(6) DEFAULT NULL,
-  `r5_count` smallint(6) DEFAULT NULL,
-  `r11_count` smallint(6) DEFAULT NULL
+CREATE TABLE `tpage_ranks` (
+  `tid` int(11) NOT NULL,
+  `page` int(11) NOT NULL,
+  `postcount` tinyint(4) DEFAULT NULL,
+  `r1` tinyint(4) DEFAULT '0',
+  `r2` tinyint(4) DEFAULT '0',
+  `r3` tinyint(4) DEFAULT '0',
+  `r4` tinyint(4) DEFAULT '0',
+  `r5` tinyint(4) DEFAULT '0',
+  `r11` tinyint(4) DEFAULT '0',
+  `fp_date` datetime DEFAULT NULL,
+  PRIMARY KEY (`tid`,`page`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -272,6 +271,20 @@ CREATE TABLE `tpages` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `user_merits`
+--
+
+DROP TABLE IF EXISTS `user_merits`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `user_merits` (
+  `uid` int(11) DEFAULT NULL,
+  `merit` smallint(6) DEFAULT NULL,
+  `date` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `users`
 --
 
@@ -280,12 +293,12 @@ DROP TABLE IF EXISTS `users`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `users` (
   `name` varchar(50) NOT NULL,
-  `uid` int(11) DEFAULT NULL,
-  `lastposted` datetime DEFAULT NULL,
-  `siteid` int(11) NOT NULL,
-  `rank` int(11) DEFAULT NULL,
+  `uid` int(11) NOT NULL DEFAULT '0',
+  `siteid` smallint(6) NOT NULL,
+  `rank` smallint(6) DEFAULT NULL,
+  `merit` smallint(6) DEFAULT NULL,
   `created_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`name`,`siteid`)
+  PRIMARY KEY (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -298,4 +311,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2017-11-21 19:39:41
+-- Dump completed on 2018-07-15 11:12:06

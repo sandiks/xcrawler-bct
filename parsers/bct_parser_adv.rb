@@ -99,7 +99,7 @@ class BCTalkParserAdv
 
   end
 
-  def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24, threads_num=20)
+  def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24, threads_num=80)
 
     from=date_now(hours_back)
     to=date_now(0)
@@ -124,7 +124,8 @@ class BCTalkParserAdv
     tid_list.each do |tid,resps_diff|
       
       #next if tid!=2675213
-      indx+=1; p "--[#{indx}] tid: #{tid} resp_diff: #{resps_diff}"
+      indx+=1; 
+      p "--[#{indx}] tid: #{tid} resp_diff: #{resps_diff}"
 
       dd =load_thread_pages_before_date(fid,tid, hours_back, 0, only_3_Pages)
       #sleep(1)
@@ -378,7 +379,11 @@ class BCTalkParserAdv
         grouped_domains = links.group_by do |ll|
           link = ll['href'].gsub(' ','').strip
           begin
-            URI.parse( link ).host.split('.').last(2).join('.') 
+            url = URI.parse( link ).host.split('.').last(2).join('.')
+            if ['bitcointalk.org','goo.gl'].include?(url)
+              url = link.sub(/^https?\:\/\/(www.)?/,'')
+            end
+            url            
           rescue
             dmn = link.sub(/^https?\:\/\/(www.)?/,'').split('/').first
             dmn ? dmn.strip : "bitcointalk.org/error"
@@ -386,7 +391,7 @@ class BCTalkParserAdv
         end
 
         domains = grouped_domains
-        .sort_by{|k,v| k.include?("bitcointalk.org") ? 0 : -v.size}
+        .sort_by{|k,v| ['bitcointalk.org','goo.gl','bit.ly','www'].include?(k) ? 0 : -v.size}
         .map { |k,v| v.size>1 ? k : v.map{ |ll| ll['href'].sub(/^https?\:\/\/(www.)?/,'') }.join('|') }
         
         kk = domains.first
