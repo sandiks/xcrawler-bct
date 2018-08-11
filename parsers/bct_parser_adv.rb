@@ -93,7 +93,7 @@ class BCTalkParserAdv
     .select_map([:tid,:responses,:last_post_date])
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <300 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
     .reverse.take(threads_num)
 
@@ -161,6 +161,7 @@ class BCTalkParserAdv
     thread_rec = DB[:threads].filter(tid: tid).first 
     thread_title = thread_rec[:title] rescue ""
     old_reliable = thread_rec[:reliable] rescue 0
+
 
     page_and_num = PageUtil.calc_last_page(responses+1,20)
     lpage = page_and_num[0]
@@ -251,8 +252,13 @@ class BCTalkParserAdv
 
     p "#{thread_title}"
 
-    p "--load_thr #{tid} pg_count: #{page_and_num}".ljust(43)+
-    "down_pages:#{finished_downl_pages} ranks_stat: #{dd} #{saved} #{reliable_info}" if downl_pages.size>0 
+    if downl_pages.size>0 
+      p "--LOADED #{tid} last_pg(count): #{page_and_num[0]}(#{page_and_num[1]})".ljust(43)+
+      "down_pages:#{finished_downl_pages} ranks_stat: #{dd} #{saved} #{reliable_info}"
+    else
+      tpages = DB[:tpage_ranks].filter(tid:tid).select_map([:page, :postcount]).last(3)
+      p "--NO LOADED #{tid} responses: #{responses}, db_pages: #{tpages}"
+    end
     p "----------------------"    
     
     all_ranks_stat
@@ -517,7 +523,7 @@ class BCTalkParserAdv
 
   end
 
-  def self.load_only_top10_post_in_thread(tid, downl_rank=4) ## for site, show when you click 'post' button
+  def self.load_only_top10_posts_in_thread(tid, downl_rank=4) ## for site, show when you click 'post' button
 
       responses= DB[:threads].filter(siteid:SID, tid: tid).select_map(:responses).first
       tpages = DB[:tpages].filter(Sequel.lit("siteid=? and tid=?", SID, tid)).to_hash(:page,:postcount)

@@ -36,14 +36,14 @@ class BctThreadsReport
     .select_map([:tid,:responses,:last_post_date])
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <600 } }
+    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <300 } }
     .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
     .reverse.take(threads_num)
 
 
   end
 
-  def self.report_response_statistic(fid, hours_back =24, threads_num=40, need_sort_by_reliable=true)
+  def self.report_response_statistic(fid, hours_back =24, threads_num=20, need_sort_by_reliable=true)
 
     out = []
     from=date_now(hours_back)

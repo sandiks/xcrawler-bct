@@ -32,11 +32,11 @@ end
 
 def load_calc_report(fid)
   
-  hours = 3*24
+  hours = 2*24
   BCTalkParserAdv.save_thread_responses_statistics(fid, 24)  
   
   BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid, hours, 120) 
-  BctThreadsReport.report_response_statistic(fid, hours, 60, true)
+  BctThreadsReport.report_response_statistic(fid, hours, 20, true)
   #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
 
 end

@@ -1,6 +1,7 @@
 require_relative  'helpers/helper'
 require_relative  'helpers/repo'
 require_relative  'helpers/page_utils'
+require_relative  'parsers/bct_parser_adv'
 
 
 DB = Repo.get_db
@@ -82,9 +83,9 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
 
   url_templ = "https://bitcointalk.org/index.php?topic=%s.%s"
   url = url_templ % [tid,(lpage-1)*40]
-  
+
   tpages = DB[:tpage_ranks].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount,:fp_date,:r1,:r2,:r3,:r4,:r5,:r11]).first(20)
-  
+
   all_ranks = [0,0,0,0,0,0,0]
 
   tpages.sort_by{|k,v| -k}.each do |pp,data|
@@ -97,29 +98,88 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
   p all_ranks
   sum = all_ranks.sum*10
   points = all_ranks[1]+all_ranks[2]+all_ranks[3]*2+all_ranks[4]*2+all_ranks[5]*2+all_ranks[6]
-  reliable = points/sum.to_f     
+  reliable = points/sum.to_f
 
   p "sum #{sum} reliable #{reliable}"
 
 end
 
 def test_last_parsed_date_and_current_date
-    fid = 240
-    now = date_now(0)
+  fid = 240
+  now = date_now(0)
 
-    parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
-    last_parsed_date =  parsed_dates.last.to_datetime
-    #p now-last_parsed_date
-    diff =  (now.to_time - last_parsed_date.to_time) / 3_600
-    p diff.round
+  parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
+  last_parsed_date =  parsed_dates.last.to_datetime
+  #p now-last_parsed_date
+  diff =  (now.to_time - last_parsed_date.to_time) / 3_600
+  p diff.round
 end
 
-test_last_parsed_date_and_current_date
+def parse_signature
+  rank=2
+  sign_tr = File.open("signature.html") { |f| Nokogiri::HTML(f) }
 
-#BctThreadsReport.analz_thread_posts_of_users_rank1(2009966,48) ##load thr-posts 
-#BCTalkParserAdv.load_thread_before_date(159,1847292,24)
+  if rank>1 && sign_tr && (links = sign_tr.css('a'))
+    
+    #p links.map { |ll| ll['href'].gsub(' ','').strip  }
 
-#show_responses_and_ranks_for_thread(FID,TID)
+    grouped_domains = links.group_by do |ll|
+      link = ll['href'].gsub(' ','').strip
+      begin
+        url = URI.parse( link ).host.split('.').last(2).join('.')
+        if ['bitcointalk.org','goo.gl'].include?(url)
+          url = link.sub(/^https?\:\/\/(www.)?/,'')
+        end
+        url
+      rescue
+        dmn = link.sub(/^https?\:\/\/(www.)?/,'').split('/').first
+        dmn ? dmn.strip : "bitcointalk.org/error"
+      end
+    end
 
-#thread_posts_stats(2648389,24)
-#Repo.insert_into_user_merits({19695 => 10})
+    domains = grouped_domains
+    .sort_by{|k,v| ['bit.ly','goo.gl','www','bitcointalk.org'].include?(k) ? 0 : -v.size}
+    .map { |k,v| v.size>1 ? k : v.map{ |ll| ll['href'].sub(/^https?\:\/\/(www.)?/,'') }.join('|') }
+    
+    p domains
+
+    p kk = domains.first
+    #p "bounty:  #{kk}".ljust(60)+"#{addedby}"
+    p {uid:addeduid, bo_name:kk} 
+
+  end
+end
+
+def test_load_posts_for_max_responses_thread(fid, tid, hours_back =24, threads_num=80)
+
+  from=date_now(hours_back)
+  to=date_now(0)
+
+  tid_list = [tid]
+
+  only_3_Pages = threads_num>30
+  indx=0
+
+  tid_list.each do |tid,resps_diff|
+
+    #next if tid!=2675213
+    indx+=1;
+    p "--[#{indx}] tid: #{tid} resp_diff: #{resps_diff}"
+
+    dd = BCTalkParserAdv.load_thread_pages_before_date(fid,tid, hours_back, 0, only_3_Pages)
+    #sleep(1)
+
+  end
+
+  ##
+  #Repo.insert_users(users_store.values, SID)
+
+  #inserted_bounties = Repo.save_user_bounty(users_bounty.values, SID)
+  #inserted_merits_users = Repo.insert_into_user_merits(BCTalkParserAdv.users_merit_store)
+
+
+  tid_list.map { |e| e[0]  }
+
+end
+
+test_load_posts_for_max_responses_thread(240,4553607)
