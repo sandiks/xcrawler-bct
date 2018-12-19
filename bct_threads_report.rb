@@ -46,7 +46,6 @@ class BctThreadsReport
   def self.report_response_statistic(fid, hours_back =24, threads_num=20, need_sort_by_reliable=true)
 
     out = []
-    from=date_now(hours_back)
 
     forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
     ##generate
@@ -78,13 +77,18 @@ class BctThreadsReport
 
     end
 
-    last_parsed = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed).last
+    from=date_now(hours_back)
+    parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from)).order(:bot_parsed).select_map(:bot_parsed)
+    p "parsed_dates #{parsed_dates}"
+    
+    first = parsed_dates.first
+    last = parsed_dates.last
 
-    p "---------report_response_statistic --FORUM: (#{fid}) --from:#{last_parsed.strftime("%F %H:%M")}"
+    p "---------report_response_statistic --FORUM: (#{fid}) -- from: #{first.strftime("%F %H:%M")} to: #{last.strftime("%F %H:%M")}"
 
     out<< ""
     out<<"[b]forum: (#{fid}) #{forum_title}[/b] "
-    out<<"[b]#{from.strftime("%F %H:%M")}  -  #{date_now.strftime("%F %H:%M")}[/b]"
+    out<<"[b]#{first.strftime("%F %H:%M")}  -  #{last.strftime("%F %H:%M")}[/b]"
     out<<"------------"
 
     ## generate report 
@@ -92,7 +96,7 @@ class BctThreadsReport
 
       topics.sort_by{|dd| -dd[:reliable]}.each do |topic|
         reliable = topic[:reliable]
-        out<< "reliable #{ '%0.2f' % reliable} responses: #{ topic[:responses] }"
+        out<< "reliability #{ '%0.2f' % reliable} responses: #{ topic[:responses] }"
         out<< "#{topic[:url]}"
         out<<""
       end
@@ -105,7 +109,7 @@ class BctThreadsReport
     end
 
     @@report_file = REPORT_FILE % [fid] if @@report_file==""
-    File.write("report/"+@@report_file, out.join("\n"))
+    File.write("report/" + @@report_file, out.join("\n"))
 
   end
 
