@@ -100,17 +100,17 @@ class BCTalkParserAdv
   end
 
   def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24, threads_num=80)
+    p "[start] load_posts_for_max_responses_threads_in_interval fid: #{fid} hours_back: #{hours_back} threads_num: #{threads_num}"
 
     from=date_now(hours_back)
     to=date_now(0)
 
     title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
-    p "----------------FORUM: #{fid} #{title}"
 
     parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from))
     .all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }.join(', ')
 
-    p " -- fid:#{fid} hours_back:#{hours_back} parsed_dates:#{parsed_dates}"
+    p "[start] parsed_dates:#{parsed_dates} FORUM: #{fid} #{title}"
     
     tid_list = nil
     unless tid_list
@@ -138,8 +138,8 @@ class BCTalkParserAdv
     inserted_bounties = Repo.save_user_bounty(users_bounty.values, SID)
     inserted_merits_users = Repo.insert_into_user_merits(BCTalkParserAdv.users_merit_store)
 
-    p "merits users: #{inserted_merits_users}"
-    p "inserted bounties: #{inserted_bounties}"
+    p "[end] merits users: #{inserted_merits_users}"
+    p "[end] inserted bounties: #{inserted_bounties}"
 
     tid_list.map { |e| e[0]  }
 

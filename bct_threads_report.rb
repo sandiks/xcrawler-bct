@@ -79,12 +79,13 @@ class BctThreadsReport
 
     from=date_now(hours_back)
     parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from)).order(:bot_parsed).select_map(:bot_parsed)
-    p "parsed_dates #{parsed_dates}"
+
+    p "[start]  ---report_response_statistic --hours_back: #{hours_back} --parsed_dates: #{parsed_dates}" 
     
     first = parsed_dates.first
     last = parsed_dates.last
 
-    p "---------report_response_statistic --FORUM: (#{fid}) -- from: #{first.strftime("%F %H:%M")} to: #{last.strftime("%F %H:%M")}"
+    p "[start] report_response_statistic  -- from: #{first.strftime("%F %H:%M")} to: #{last.strftime("%F %H:%M")}"
 
     out<< ""
     out<<"[b]forum: (#{fid}) #{forum_title}[/b] "

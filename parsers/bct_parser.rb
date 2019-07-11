@@ -55,7 +55,7 @@ class BCTalkParser
       next if tr.css("td").size != 7
 
       thr_a = tr.css("td:nth-child(3)  a")[0]
-      thr_title = thr_a.text #.gsub(/[^0-9a-zа-я\[\]\*!-()]/i, ' ').strip
+      thr_title = thr_a.text.gsub(/[^0-9a-zа-я\[\]\*!-()]/i, ' ').strip
       thr_link = thr_a['href']
       tid = thr_link.split('=').last.scan(/\d+/)[0].to_i
       date = tr.css("td:nth-child(7) span").text.strip
@@ -79,8 +79,8 @@ class BCTalkParser
     Repo.insert_or_update_threads_for_forum(page_threads,SID)
     
     ## save statistics 
-    inserted=0
-    inserted =Repo.insert_into_threads_responses(SID, fid, page_threads)
+    inserted = 0
+    inserted = Repo.insert_into_threads_responses(SID, fid, page_threads)
     
     p "[parse_forum] fid-pg: #{fid}-#{pg} last_date: #{last_date.strftime('%F %H:%M:%S')}"
 
