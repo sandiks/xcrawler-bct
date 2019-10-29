@@ -28,7 +28,7 @@ class BCTalkParser
   end
 
   def self.check_forums(pages_back=1, need_parse_threads=false)
-    forums = DB[:forums].filter(siteid:SID, check:1).map(:fid)
+    forums = DB[:forums].filter(check:1).map(:fid)
 
     Parallel.map(forums,:in_threads=>3) do |fid|
       #forums.each do |fid|
@@ -69,7 +69,6 @@ class BCTalkParser
         responses: tr.css("td")[4].text.to_i,
         viewers: tr.css("td")[5].text.to_i,
         updated: date,
-        siteid:SID,
       }
     end
 
@@ -85,7 +84,7 @@ class BCTalkParser
     p "[parse_forum] fid-pg: #{fid}-#{pg} last_date: #{last_date.strftime('%F %H:%M:%S')}"
 
     if download_thread_pages
-      old_thread_resps = DB[:threads].filter(siteid:SID, fid: fid).to_hash(:tid,:responses)
+      old_thread_resps = DB[:threads].filter(fid: fid).to_hash(:tid,:responses)
       
       load_page_threads_posts(fid, page_threads, old_thread_resps)
     end
@@ -151,7 +150,7 @@ class BCTalkParser
   def self.calc_arr_downl_pages(tid, lp_num, lp_post_count, start_date)
     downl_pages=[]
 
-    tpages = DB[:tpages].filter(Sequel.lit("siteid=? and tid=?", SID, tid)).to_hash(:page,[:postcount,:fp_date])
+    tpages = DB[:tpages].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount,:fp_date])
     
     #p tpages.map { |k,v| "[#{k},#{v[0]}]"  }
     #last thread page
@@ -246,7 +245,7 @@ class BCTalkParser
         rank = detect_user_rank(td1)
 
         unless users.has_key?(addeduid)
-          users[addeduid]={siteid:SID, uid: addeduid, name:addedby, rank:rank}
+          users[addeduid]={uid: addeduid, name:addedby, rank:rank}
         end
       end
 
@@ -288,7 +287,6 @@ class BCTalkParser
       end
 
       posts<<{
-        siteid:SID,
         mid:mid,
         tid:tid,
         body: body,
@@ -318,7 +316,7 @@ class BCTalkParser
       Repo.insert_or_update_tpage(SID,tid,page,posts.size,first_post_date)
       Repo.update_thread_bot_date(tid,SID)
     else
-      title = DB[:threads].where(siteid:SID, tid:tid).map(:title)
+      title = DB[:threads].where(tid:tid).map(:title)
       p "tid:#{tid} page:#{page} inserted:#{posts.size} title:#{title}"
     end
     #p "[ parse_thread_page_html] tid:#{tid} pg:#{page} first:#{first_date.strftime("%F %H:%M")}"

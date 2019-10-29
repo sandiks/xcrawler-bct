@@ -47,7 +47,7 @@ class BctThreadsReport
 
     out = []
 
-    forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
+    forum_title = DB[:forums].filter(fid:fid).first[:title] rescue "no forum"
     ##generate
 
     indx=0
@@ -115,7 +115,8 @@ class BctThreadsReport
   end
 
   def self.unreliable_threads(fid, hours_back =24)
-    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable])
+    
+    threads_attr = DB[:threads].filter(fid:fid).to_hash(:tid, [:title,:reliable])
     unreliable_threads = threads_attr.select{ |k,v| v[1] && v[1]<0.3   }
 
     unreliable_tids = unreliable_threads.keys
@@ -138,7 +139,7 @@ class BctThreadsReport
     from=date_now(hours_back)
     to=date_now(0)
 
-    threads_title = DB[:threads].first(siteid:SID,tid:tid)[:title]
+    threads_title = DB[:threads].first(tid:tid)[:title]
     out = []
 
     type='f'
@@ -151,7 +152,7 @@ class BctThreadsReport
     out<<"#{bold}#{from.strftime("%F %H:%M")}  -  #{to.strftime("%F %H:%M")}#{bold_end}"
     out<<"------------"
 
-    posts = DB[:posts].filter( Sequel.lit("siteid=? and tid=? and addeddate > ?", SID, tid, from) )
+    posts = DB[:posts].filter( Sequel.lit("tid=? and addeddate > ?", tid, from) )
     .order(:addeddate).select(:body,:addedby, :addedrank, :addeddate).all
 
     posts.each do |pp|
@@ -172,9 +173,9 @@ class BctThreadsReport
 
     threads_stats = DB[:threads_stat].filter(Sequel.lit("fid=? and added > ?", fid, from)).all
 
-    forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
+    forum_title = DB[:forums].filter(fid:fid).first[:title] rescue "no forum"
 
-    threads_titles = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :title)
+    threads_titles = DB[:threads].filter(fid:fid).to_hash(:tid, :title)
     out = []
 
     type='f'

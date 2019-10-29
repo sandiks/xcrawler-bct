@@ -23,7 +23,7 @@ require_relative  'bct_bounty_report'
 FORUMS=[160,83,67,72,1]
 HOURS_BACK=78
 
-def  all_forums_check
+def all_forums_check
 
   hours=2*24
   #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
@@ -31,29 +31,27 @@ def  all_forums_check
 end
 
 def load_calc_report(fid)
-  
-  hours = 12*24
-  #BCTalkParserAdv.save_thread_responses_statistics(fid, 24)
-  
+  hours = 8 * 24
+  BCTalkParserAdv.save_thread_responses_statistics(fid, 48)
+
   BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid, hours, 120) 
   BctThreadsReport.report_response_statistic(fid, hours, 20, true)
-  #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours) 
+  #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours)
 
 end
 
-
 def fast_check(fid)
   hours =7*24
-  
-  #BCTalkParserAdv.save_thread_responses_statistics(fid, hours)  
-  BctThreadsReport.report_response_statistic(fid, hours, 10, true) ##show 40 threads
+
+  # BCTalkParserAdv.save_thread_responses_statistics(fid, hours)
+  BctThreadsReport.report_response_statistic(fid, hours, 10, true) # show 40 threads
 end
 
 
 def load_thread_and_report_post
   fid=
   tid=2384512
-  #BCTalkParserAdv.load_thread_pages_before_date(fid, tid,24*3, 0)
+  # BCTalkParserAdv.load_thread_pages_before_date(fid, tid,24*3, 0)
 
   BctThreadsReport.analz_thread_posts_of_users(tid,120)
 end
@@ -61,9 +59,9 @@ end
 
 ##  generate report with thread name and users with rank>3
 def load_post_and_gen_report
-  fid=67
-  pg=3
-  hours=24
+  fid = 67
+  pg = 3
+  hours = 24
 
   #BCTalkParser.set_from_date(hours).parse_forum(fid,pg,true)
   BctUsersReport.gen_threads_with_stars_users(fid, hours)
@@ -77,7 +75,7 @@ DB = Repo.get_db
 def date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
 def clean_table
-  from=date_now(24*5)
+  from=date_now(24*60)
   p DB[:threads_responses].where{parsed_at<from}.delete
 end
 

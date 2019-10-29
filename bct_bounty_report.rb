@@ -21,7 +21,7 @@ class BctBountyReport
 
     from=DateTime.now.new_offset(0/24.0)-0.6
 
-    unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
+    unames = DB[:users].to_hash(:uid, [:name,:rank])
     user_bounties = DB[:bct_user_bounty].to_hash(:uid, :bo_name)
 
     res=[]
@@ -81,7 +81,7 @@ class BctBountyReport
     p "report print_changed_bounty"
     from=date_now(hours)
 
-    unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
+    unames = DB[:users].to_hash(:uid, [:name,:rank])
     user_bounties = DB[:bct_user_bounty].select_map([:uid, :bo_name, :created_at])
 
     res=[]
@@ -112,7 +112,7 @@ class BctBountyReport
     p "report print_changed_bounty"
     from=date_now(45*24)
 
-    unames = DB[:users].filter(siteid:SID).to_hash(:uid, [:name,:rank])
+    unames = DB[:users].to_hash(:uid, [:name,:rank])
     user_bounties = DB[:bct_user_bounty].where{created_at>from}.select_map([:uid, :bo_name, :created_at])
 
     res=[]

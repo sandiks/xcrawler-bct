@@ -68,13 +68,13 @@ class BctUsersReport
     from = date_now(hours)
     to =   date_now(0)
 
-    title = DB[:forums].filter(siteid:SID,fid:fid).first[:title] rescue "no forum"
-    uranks = DB[:users].filter(siteid:SID).to_hash(:name, :rank)
-    threads = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :title)
-    threads_responses = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :responses)
+    title = DB[:forums].filter(fid:fid).first[:title] rescue "no forum"
+    uranks = DB[:users].to_hash(:name, :rank)
+    threads = DB[:threads].filter(fid:fid).to_hash(:tid, :title)
+    threads_responses = DB[:threads].filter(fid:fid).to_hash(:tid, :responses)
 
     posts = DB[:posts].join(:threads, :tid=>:tid)
-    .filter(Sequel.lit("posts.siteid=9 and threads.fid=? and addeddate > ? and addeddate < ? and addedrank>=?", fid, from, to,rank))
+    .filter(Sequel.lit("threads.fid=? and addeddate > ? and addeddate < ? and addedrank>=?", fid, from, to,rank))
     .order(:addeddate)
     .select(:addeduid, :addedby, :addeddate, :posts__tid, :addedrank).all
 
@@ -124,7 +124,7 @@ class BctUsersReport
       top = 25
 
       posts = DB[:posts].join(:threads, :tid=>:tid)
-      .filter(Sequel.lit("posts.siteid=? and threads.fid=? and addeddate > ?", SID, fid, from)).select(:addeduid, :addedby).all
+      .filter(Sequel.lit("threads.fid=? and addeddate > ?", fid, from)).select(:addeduid, :addedby).all
 
       out<<"**top #{top} active users** from:#{from.strftime("%F %H:%M")}"
       posts.group_by{|pp| pp[:addedby]}.sort_by{|uname,pp| -pp.size}.take(top).each  do |uname,uposts|
@@ -147,10 +147,10 @@ class BctUsersReport
   def self.analyse_users_posts_for_thread(tid)
 
     from=DateTime.now.new_offset(0/24.0)-1
-    uranks = DB[:users].filter(siteid:SID).to_hash(:name, :rank)
+    uranks = DB[:users].to_hash(:name, :rank)
 
     posts = DB[:posts].join(:users, :uid=>:posts__addeduid)
-    .filter(Sequel.lit("posts.siteid=? and tid=? and rank>3 and addeddate > ?", SID,tid,from)).select(:addeduid, :addedby, :addeddate, :body).all
+    .filter(Sequel.lit("tid=? and rank>3 and addeddate > ?", tid, from)).select(:addeduid, :addedby, :addeddate, :body).all
 
     res=[]
     posts.group_by{|pp| pp[:addedby]}.each  do |uname,uposts|
@@ -164,12 +164,12 @@ class BctUsersReport
   
   def self.top_active_users_for_forum(fid)
 
-    title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
+    title = DB[:forums].filter(fid:fid).first[:title]
     from=DateTime.now.new_offset(0/24.0)-1
-    uranks = DB[:users].filter(siteid:SID).to_hash(:name, :rank)
+    uranks = DB[:users].to_hash(:name, :rank)
 
     posts = DB[:posts].join(:threads, :tid=>:tid).join(:users, :uid=>:posts__addeduid)
-    .filter(Sequel.lit("posts.siteid=? and threads.fid=? and addeddate > ?", SID, fid, from)).select(:addeduid, :addedby).all
+    .filter(Sequel.lit("threads.fid=? and addeddate > ?", fid, from)).select(:addeduid, :addedby).all
 
     res=[]
     res<<"most active users from: #{from.strftime("%F %H:%M")} forum:#{title}"

@@ -20,7 +20,7 @@ class Repo
   end
 
   def self.get_forum_name(fid,sid=0)
-    ff = DB[:forums].where(siteid:sid, fid: fid).first
+    ff = DB[:forums].where(fid: fid).first
     lev1 = ff[:name]
   end
 
@@ -28,20 +28,20 @@ class Repo
   def self.get_forum_name_by_tid(tid,sid=0)
     return if sid==0
 
-    thr = DB[:threads].where(siteid:sid, tid: tid).first
+    thr = DB[:threads].where(tid: tid).first
     if not thr.nil?
-      ff = DB[:forums].where(siteid:sid, fid: thr[:fid]).first
+      ff = DB[:forums].where(fid: thr[:fid]).first
       ff[:name]
     end
   end
 
   def self.update_forum_bot_date(fid,sid=0)
-    rec = DB[:forums].filter(siteid:sid, fid: fid)
+    rec = DB[:forums].filter(fid: fid)
     rec.update(:bot_updated => datetime_now)
   end
 
   def self.get_forum_bot_date(fid,sid=0)
-    rec = DB[:forums].filter(siteid:sid, fid: fid)
+    rec = DB[:forums].filter(fid: fid)
     rec.first[:bot_updated] #.new_offset(3/24.0)
   end
 
@@ -51,7 +51,7 @@ class Repo
     count=0
     DB.transaction do
 
-      exist = DB[:forums].filter(siteid:sid).map(:fid)
+      exist = DB[:forums].map(:fid)
 
       forums.each do |ff|
         begin
@@ -72,17 +72,17 @@ class Repo
 
   #####thread
   def self.get_thread_bot_date(tid,sid=0)
-    rec = DB[:threads].filter(siteid:sid, tid: tid)
+    rec = DB[:threads].filter(tid: tid)
     rec.first[:bot_updated].new_offset(3/24.0)
   end
 
   def self.get_thread(tid,sid=0)
     return if sid==0
-    thr = DB[:threads].first(siteid:sid, tid: tid)
+    thr = DB[:threads].first(tid: tid)
   end
 
   def self.insert_or_update_forum(forum,sid=0)
-    rec = DB[:forums].where(siteid:sid, fid: forum[:fid])
+    rec = DB[:forums].where(fid: forum[:fid])
 
     if 1 != rec.update(:name => forum[:name])
       DB[:forums].insert(forum)
@@ -90,12 +90,12 @@ class Repo
   end
 
   def self.update_thread_bot_date(tid,sid=0)
-    rec = DB[:threads].filter(siteid:sid, tid: tid)
+    rec = DB[:threads].filter(tid: tid)
     rec.update(bot_updated: datetime_now)
   end
 
   def self.get_thread_bot_date(tid,sid=0)
-    rec = DB[:threads].filter(siteid:sid, tid: tid)
+    rec = DB[:threads].filter(tid: tid)
     rec.first[:bot_updated]
   end
 
@@ -105,7 +105,7 @@ class Repo
     count=0
     DB.transaction do
 
-      exist = DB[:threads].filter(siteid:sid).map(:tid)
+      exist = DB[:threads].map(:tid)
 
       threads.each do |thr|
         
@@ -115,7 +115,7 @@ class Repo
             count+=1
           else
             #puts "update thread tid:#{thr[:tid]} title:#{thr[:title]}"
-            DB[:threads].filter(siteid:sid, tid: thr[:tid]).update(thr)
+            DB[:threads].filter(tid: thr[:tid]).update(thr)
           end
         rescue =>ex
           puts "[error tid:#{thr[:tid]}] #{ex.class}"
@@ -132,7 +132,7 @@ class Repo
     count=0
     DB.transaction do
 
-      exist = DB[:threads].filter(siteid:sid).map(:tid)
+      exist = DB[:threads].map(:tid)
           #rec.update(fid:tt[:fid], title:tt[:title], responses: tt[:responses], viewers: tt[:viewers], updated: tt[:updated])
           #rec.update(responses: tt[:responses], viewers: tt[:viewers], updated: tt[:updated])
 
@@ -145,9 +145,9 @@ class Repo
           else
             #puts "update thread tid:#{thr[:tid]} title:#{thr[:title]}"
             if full_update
-              DB[:threads].filter(siteid:sid, tid: thr[:tid]).update(thr)
+              DB[:threads].filter(tid: thr[:tid]).update(thr)
             else
-              DB[:threads].filter(siteid:sid, tid: thr[:tid])
+              DB[:threads].filter(tid: thr[:tid])
               .update(title: thr[:title], responses: thr[:responses], viewers: thr[:viewers], updated: thr[:updated])
             end
           end
@@ -242,7 +242,7 @@ class Repo
     count=0
     DB.transaction do
 
-      exist = DB[:posts].filter(siteid:sid, tid: threads_id).map(:mid)
+      exist = DB[:posts].filter(tid: threads_id).map(:mid)
       posts.each do |pp|
         begin
 
@@ -250,8 +250,8 @@ class Repo
             DB[:posts].insert(pp)
             count+=1
           else
-            #DB[:posts].filter(siteid:sid, mid: pp[:mid]).update(addeddate: pp[:addeddate])
-            #DB[:posts].filter(siteid:sid, mid: pp[:mid]).update(body:pp[:body])
+            #DB[:posts].filter(mid: pp[:mid]).update(addeddate: pp[:addeddate])
+            #DB[:posts].filter(mid: pp[:mid]).update(body:pp[:body])
           end
         rescue =>ex
           puts "[error mid:#{pp[:mid]}] #{ex.message} tid:#{threads_id}"
@@ -343,7 +343,7 @@ class Repo
   end  
 
   def self.get_tpages(tid,sid=0)
-    DB[:tpages].filter(siteid:sid, tid:tid).to_hash(:page,:postcount)
+    DB[:tpages].filter(tid:tid).to_hash(:page,:postcount)
   end
 
   def self.calc_page(tid,curr_responses,sid=0)
@@ -355,7 +355,7 @@ class Repo
     last_page = last_page_with_post_count[0]
     last_posts_count = last_page_with_post_count[1]
 
-    db_last_posts_count = DB[:tpages].filter(siteid:sid, tid:tid, page:last_page).map(:postcount).first||0
+    db_last_posts_count = DB[:tpages].filter(tid:tid, page:last_page).map(:postcount).first||0
 
     all_pages=(1..last_page-1).to_a
 
@@ -365,7 +365,7 @@ class Repo
     page =0
     if not new_posts
 
-      pages_count = DB[:tpages].filter(siteid:sid, tid:tid).map([:page,:postcount])
+      pages_count = DB[:tpages].filter(tid:tid).map([:page,:postcount])
 
       pages_less50 = pages_count.select{|p| p[1]!=page_size && p[0]<last_page}.map { |p| p[0] }
       pages50 = pages_count.select{|p| p[1]== page_size && p[0]<last_page}.map { |p| p[0] }
@@ -391,13 +391,13 @@ class Repo
     return if page==0 || sid==0
 
     #update table[tpages] with post count on page
-    rec = DB[:tpages].where({siteid:sid, tid:tid, page:page })
+    rec = DB[:tpages].where({tid:tid, page:page })
     
     #p "update tpage #{rec.sql}"
     upd =rec.update({postcount:count,fp_date: first_post_date})
 
     if 1 != upd 
-      DB[:tpages].insert({siteid:sid, tid:tid, page:page, postcount:count, fp_date: first_post_date})
+      DB[:tpages].insert({tid:tid, page:page, postcount:count, fp_date: first_post_date})
     end
   end
 

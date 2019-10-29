@@ -22,7 +22,7 @@ def show_responses_and_ranks_for_thread(fid,tid)
 
   ##-----------------------
   p "from #{from.strftime("%F %k:%M ")}"
-  threads_titles = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, :title)
+  threads_titles = DB[:threads].filter(fid:fid).to_hash(:tid, :title)
 
 
   forum_stat = DB[:forums_stat].filter(Sequel.lit("sid=? and fid=? and bot_parsed > ?", SID,fid,from))
@@ -44,11 +44,11 @@ def show_responses_and_ranks_for_thread(fid,tid)
   out=[]
   max_resps_threads.each do |tid, tt|
 
-    #p tpages = DB[:tpages].filter(Sequel.lit("siteid=? and tid=?", SID, tid)).to_hash(:page,[:postcount])
+    #p tpages = DB[:tpages].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount])
 
 
     if show_ranks
-      ranks = DB[:posts].filter( Sequel.lit("siteid=? and tid=? and addeddate > ?", SID, tid, parsed_forum_date_min) )
+      ranks = DB[:posts].filter( Sequel.lit("tid=? and addeddate > ?", tid, parsed_forum_date_min) )
       .order(:addeddate).select_map(:addedrank)
 
       ranks_gr = ranks.group_by{|x| (x||1)}.map { |k,v| [k,v.size]}.to_h
@@ -73,7 +73,7 @@ def thread_posts_stats(tid,hours_back=24) ## for site, show when you click 'post
 
   from = date_now(hours_back)
 
-  responses =  DB[:threads].first(siteid:SID, tid:tid)[:responses]
+  responses =  DB[:threads].first(tid:tid)[:responses]
 
 
   page_and_num = PageUtil.calc_last_page(responses+1,20)

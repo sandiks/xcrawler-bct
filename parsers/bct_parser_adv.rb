@@ -44,7 +44,7 @@ class BCTalkParserAdv
     BCTalkParser.set_opt({rank:4})
     BCTalkParser.set_from_date(hours) #class_variable_set(:@@from_date, date_now(hours))
 
-    forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
+    forum_title = DB[:forums].filter(fid:fid).first[:title]
 
     parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
     last_parsed_date =  parsed_dates.first.to_datetime rescue date_now(24)
@@ -89,6 +89,9 @@ class BCTalkParserAdv
   def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24, threads_num=20)
 
     from=date_now(hours_back)
+
+    #p DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).sql
+    
     threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
     .select_map([:tid,:responses,:last_post_date])
 
@@ -105,7 +108,7 @@ class BCTalkParserAdv
     from=date_now(hours_back)
     to=date_now(0)
 
-    title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
+    title = DB[:forums].filter(fid:fid).first[:title]
 
     parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from))
     .all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }.join(', ')
@@ -413,7 +416,7 @@ class BCTalkParserAdv
       post_date_str = td2.css('td:nth-child(2) div.smalltext').text
       post_date = parse_post_date(post_date_str)
       @@users_merit_store[addeduid] = merit if @@users_merit_store[addeduid]<merit
-      @@users_store[addeduid]={siteid:SID, uid: addeduid, name:addedby, rank:rank, merit:merit} unless @@users_store.has_key?(addeduid)
+      @@users_store[addeduid]={uid: addeduid, name:addedby, rank:rank, merit:merit} unless @@users_store.has_key?(addeduid)
 
       posts<<{
         addeduid:addeduid,
@@ -461,8 +464,8 @@ class BCTalkParserAdv
     from=date_now(hours_back)
     to=date_now(0)
 
-    forum_title = DB[:forums].filter(siteid:SID,fid:fid).first[:title]
-    threads_attr = DB[:threads].filter(siteid:SID,fid:fid).to_hash(:tid, [:title,:reliable])
+    forum_title = DB[:forums].filter(fid:fid).first[:title]
+    threads_attr = DB[:threads].filter(fid:fid).to_hash(:tid, [:title,:reliable])
 
     indx=0
     out = []
@@ -505,7 +508,7 @@ class BCTalkParserAdv
         
         title = "[b]#{thr_title_cleaned}[/b]"
         stat="tid: #{tid} ff: #{'%0.2f' % reliable_ff} points #{points} sum #{sum} ranks #{all_ranks} "
-        DB[:threads].filter(siteid:9, tid: tid).update(reliable: reliable_ff)
+        DB[:threads].filter(tid: tid).update(reliable: reliable_ff)
       end
       topics <<{reliable: reliable_ff, responses:resps_diff, title: title, stat: stat }
 
@@ -525,8 +528,8 @@ class BCTalkParserAdv
 
   def self.load_only_top10_posts_in_thread(tid, downl_rank=4) ## for site, show when you click 'post' button
 
-      responses= DB[:threads].filter(siteid:SID, tid: tid).select_map(:responses).first
-      tpages = DB[:tpages].filter(Sequel.lit("siteid=? and tid=?", SID, tid)).to_hash(:page,:postcount)
+      responses= DB[:threads].filter(tid: tid).select_map(:responses).first
+      tpages = DB[:tpages].filter(Sequel.lit("tid=?", SID, tid)).to_hash(:page,:postcount)
 
       page_and_num = PageUtil.calc_last_page(responses+1,20)
       lpage = page_and_num[0]
