@@ -74,7 +74,7 @@ class BCTalkParser
 
     last_date =page_threads.last[:updated]
         
-    ## save/ update threads
+    ## save/update threads
     Repo.insert_or_update_threads_for_forum(page_threads,SID)
     
     ## save statistics 
@@ -109,11 +109,11 @@ class BCTalkParser
       #old_resps = old_thread_resps[tid]
 
 ##calc how many pages_back neeed download for current thread 
-      downl_pages=calc_arr_downl_pages(tid,lpage,lcount,@@from_date).take(5)
+      downloaded_pages=calc_arr_downl_pages(tid,lpage,lcount,@@from_date).take(5)
 
       res=[]
       stars=0
-      downl_pages.each do |pp|   
+      downloaded_pages.each do |pp|   
         res<<pp[0]
         
         loop do
@@ -123,7 +123,7 @@ class BCTalkParser
             stars += data[:stars]||0
             break
 
-          rescue  =>ex 
+          rescue=>ex 
             puts "#{idx} !!!load_forum_threads [#{tid}.#{pp[0]}] #{ex.class} "
             #File.open('BCT_THREADS_ERRORS', 'a') { |f| f.write("#{tid} #{pp[0]}\n") }
             sleep 2 
@@ -131,7 +131,7 @@ class BCTalkParser
         end
 
       end      
-      planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
+      planned_str=downloaded_pages.map { |pp| "#{pp[0]}" }.join(' ')
 
       p "[#{idx} load_thr #{tid} last:#{page_and_num}".ljust(40)+
       "upd: #{thr[:updated].strftime("%d**%H:%M:%S") }]".ljust(20)+

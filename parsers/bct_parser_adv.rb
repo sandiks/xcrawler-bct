@@ -20,7 +20,7 @@ class BCTalkParserAdv
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
 
   def self.need_parse(fid)
-    last_parsed = DB[:forums_stat].filter(sid:SID, fid:fid)
+    last_parsed = DB[:forums_stat].filter(fid:fid)
     .reverse_order(:bot_parsed).limit(1).select_map(:bot_parsed).first
 
     return true unless last_parsed
@@ -75,13 +75,14 @@ class BCTalkParserAdv
           last_page_date = BCTalkParser.parse_forum(fid,pg)
           finish=true  if last_page_date.nil? || last_page_date < BCTalkParser.from_date
           break
-        rescue  =>ex
+        rescue => ex
           puts "#{fid} #{pg} #{ex} "
           sleep 2
         end
       end
+
     end
-    DB[:forums_stat].insert({sid:SID, fid:fid, bot_action:"---save_thread_responses_statistics ---hours_back:#{hours}" , bot_parsed: date_now})
+    DB[:forums_stat].insert({fid:fid, bot_action:"---save_thread_responses_statistics ---hours_back:#{hours}" , bot_parsed: date_now})
 
   end
 
@@ -96,9 +97,10 @@ class BCTalkParserAdv
     .select_map([:tid,:responses,:last_post_date])
 
     sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|k,v| v.size>1 && v.all?{|tt2| tt2[1] <300 } }
-    .sort_by{|k,tt| dd=tt.map { |el| el[1]  }.minmax;  dd.last-dd.first }
-    .reverse.take(threads_num)
+    .select{|tid,v| v.size>1 && v.all?{|tt| tt[1] <300 } }
+    .map{ |tid, vv| dd=vv.map{ |el| el[1]  }.minmax;  [tid, dd.last-dd.first] }
+    .sort_by{ |tid_resp| -tid_resp[1] }
+    .take(threads_num)
 
   end
 
@@ -118,7 +120,6 @@ class BCTalkParserAdv
     tid_list = nil
     unless tid_list
       tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
-      .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first] }
     end
 
     only_3_Pages = threads_num>30
@@ -136,9 +137,9 @@ class BCTalkParserAdv
     end
 
     ##
-    Repo.insert_users(users_store.values, SID)
+    Repo.insert_users(users_store.values)
 
-    inserted_bounties = Repo.save_user_bounty(users_bounty.values, SID)
+    inserted_bounties = Repo.save_user_bounty(users_bounty.values)
     inserted_merits_users = Repo.insert_into_user_merits(BCTalkParserAdv.users_merit_store)
 
     p "[end] merits users: #{inserted_merits_users}"
@@ -175,7 +176,7 @@ class BCTalkParserAdv
 
     #check_on_corrected_tpages(tid,lpage)
 
-    downl_pages= calc_arr_downl_pages(tid, lpage, lcount, from).take(10)
+    downl_pages = calc_arr_downl_pages(tid, lpage, lcount, from).take(10)
 
     all_ranks_stat = Hash.new(0)
 
@@ -184,7 +185,7 @@ class BCTalkParserAdv
 
     finished_downl_pages=[]
     
-    downl_pages.each do |pp|
+    downl_pages.each do |downloaded_thread_page|
 
       break if break_downl_thread
 
@@ -200,11 +201,11 @@ class BCTalkParserAdv
             break
           end
 
-          data = parse_page_and_save_to_tpage_ranks(tid, pp[0]) ##  save only user ranks
+          data = parse_page_and_save_to_tpage_ranks(tid, downloaded_thread_page[0]) ##  save only user ranks
 
-          #p "---- tid #{tid} pg #{pp[0]} fp_date #{data[:first_post_date].strftime("%F %H:%M")}"
+          #p "---- tid #{tid} pg #{downloaded_thread_page[0]} fp_date #{data[:first_post_date].strftime("%F %H:%M")}"
           
-          finished_downl_pages<<pp[0]
+          finished_downl_pages<<downloaded_thread_page[0]
 
           ranks_stat= data[:stat].group_by{|x| x}.map{|k,vv| [k,vv.size]}.to_h
           [1,2,3,4,5,11].each{|x| all_ranks_stat[x]+= (ranks_stat[x]||0)}
@@ -212,7 +213,7 @@ class BCTalkParserAdv
           break_downl_thread =  data[:first_post_date] < thread_start_date
           
           if load_only_last_3Pages 
-            if pp[0]==1 || finished_downl_pages.size>=2 
+            if downloaded_thread_page[0]==1 || finished_downl_pages.size>=3 
               break_downl_thread = true
             end
 
@@ -223,7 +224,7 @@ class BCTalkParserAdv
           break
 
         rescue =>ex
-          p "--err tid #{tid} pg #{pp} --#{ex}"
+          p "--err tid #{tid} pg #{downloaded_thread_page} --#{ex}"
           #puts ex.backtrace
           sleep(2)
         end
@@ -459,7 +460,7 @@ class BCTalkParserAdv
 
   end
 
-  def self.calc_reliability_for_threads(fid,tid_list, hours_back =24)
+  def self.calc_reliability_for_threads(fid, tid_list, hours_back =24)
 
     from=date_now(hours_back)
     to=date_now(0)
@@ -472,8 +473,8 @@ class BCTalkParserAdv
     
     unless tid_list 
       tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
-      .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first] }
     end
+
     topics=[]
 
     tid_list.each do |tid, resps_diff|
@@ -529,7 +530,7 @@ class BCTalkParserAdv
   def self.load_only_top10_posts_in_thread(tid, downl_rank=4) ## for site, show when you click 'post' button
 
       responses= DB[:threads].filter(tid: tid).select_map(:responses).first
-      tpages = DB[:tpages].filter(Sequel.lit("tid=?", SID, tid)).to_hash(:page,:postcount)
+      tpages = DB[:tpages].filter(Sequel.lit("tid=?", tid)).to_hash(:page,:postcount)
 
       page_and_num = PageUtil.calc_last_page(responses+1,20)
       lpage = page_and_num[0]

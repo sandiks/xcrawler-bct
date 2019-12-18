@@ -14,7 +14,22 @@ FID=159
 TID=1847292
 HOURS_BACK=24
 
+def test_select_map
+  fid=159
+  threads_num=80
+  from=date_now(8*24)
 
+  threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
+    .select_map([:tid,:responses,:last_post_date])
+  
+  p sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
+    .select{ |k,v| v.size>1 && v.all?{|tt| tt[1] <300 } }
+    .map{ |tid, vv| dd=vv.map{ |el| el[1]  }.minmax;  [tid, dd.last-dd.first] }
+    .sort_by{ |tid_resp| -tid_resp[1] }
+    .take(threads_num)
+
+end
+test_select_map
 
 def show_responses_and_ranks_for_thread(fid,tid)
   from=date_now(HOURS_BACK)
@@ -182,4 +197,4 @@ def test_load_posts_for_max_responses_thread(fid, tid, hours_back =24, threads_n
 
 end
 
-test_load_posts_for_max_responses_thread(240,4553607)
+#test_load_posts_for_max_responses_thread(240,4553607)
