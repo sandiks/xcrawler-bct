@@ -31,7 +31,7 @@ def all_forums_check
 end
 
 def load_calc_report(fid)
-  hours = 8 * 24
+  hours = 6 * 24
   BCTalkParserAdv.save_thread_responses_statistics(fid, 48)
 
   BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid, hours, 120) 
