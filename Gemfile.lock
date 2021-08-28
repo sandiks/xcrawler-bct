@@ -25,15 +25,18 @@ GEM
     mime-types (3.2.2)
       mime-types-data (~> 3.2015)
     mime-types-data (3.2019.0331)
-    mini_portile2 (2.4.0)
+    mini_portile2 (2.5.3)
+    mysql2 (0.5.3)
     net-http-digest_auth (1.4.1)
     net-http-persistent (3.0.0)
       connection_pool (~> 2.2)
-    nokogiri (1.10.2)
-      mini_portile2 (~> 2.4.0)
+    nokogiri (1.11.4)
+      mini_portile2 (~> 2.5.0)
+      racc (~> 1.4)
     ntlm-http (0.1.1)
     parallel (1.17.0)
     raabro (1.1.6)
+    racc (1.5.2)
     rufus-scheduler (3.5.2)
       fugit (~> 1.1, >= 1.1.5)
     sequel (5.19.0)
@@ -51,6 +54,7 @@ PLATFORMS
 DEPENDENCIES
   dotenv
   mechanize
+  mysql2
   nokogiri
   parallel
   rufus-scheduler
