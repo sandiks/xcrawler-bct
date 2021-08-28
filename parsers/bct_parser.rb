@@ -75,11 +75,11 @@ class BCTalkParser
     last_date =page_threads.last[:updated]
         
     ## save/update threads
-    Repo.insert_or_update_threads_for_forum(page_threads,SID)
+    Repo.insert_or_update_threads_for_forum(page_threads)
     
     ## save statistics 
     inserted = 0
-    inserted = Repo.insert_into_threads_responses(SID, fid, page_threads)
+    inserted = Repo.insert_into_threads_responses(fid, page_threads)
     
     p "[parse_forum] fid-pg: #{fid}-#{pg} last_date: #{last_date.strftime('%F %H:%M:%S')}"
 

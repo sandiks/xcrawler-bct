@@ -46,7 +46,7 @@ class Repo
   end
 
 
-  def self.insert_forums(forums,sid=0)
+  def self.insert_forums(forums)
 
     count=0
     DB.transaction do
@@ -159,7 +159,7 @@ class Repo
     end
     count
   end
-  def self.insert_into_threads_responses(sid, fid, forum_page_threads)
+  def self.insert_into_threads_responses(fid, forum_page_threads)
 
     inserted=0
     DB.transaction do

@@ -39,10 +39,10 @@ class BCTalkParserAdv
 
   end
 
-  def self.save_thread_responses_statistics(fid, hours=12, start_page=1)
+  def self.save_thread_responses_statistics(fid, hours_to_past=12, start_page=1)
 
     BCTalkParser.set_opt({rank:4})
-    BCTalkParser.set_from_date(hours) #class_variable_set(:@@from_date, date_now(hours))
+    BCTalkParser.set_from_date(hours_to_past) #class_variable_set(:@@from_date, date_now(hours_to_past))
 
     forum_title = DB[:forums].filter(fid:fid).first[:title]
 
@@ -56,10 +56,10 @@ class BCTalkParserAdv
 
     parsed_dates_text = parsed_dates.map { |dd| dd.strftime("%F %H:%M:%S") }
     
-    p "----------(#{fid}) #{forum_title}   --hours:#{hours} --last_parsed: #{parsed_dates_text}"
+    p "----------(#{fid}) #{forum_title}   --hours:#{hours_to_past} --last_parsed: #{parsed_dates_text}"
 
     last_page_date = date_now
-    #BCTalkParser.from_date = date_now(hours)
+    #BCTalkParser.from_date = date_now(hours_to_past)
 
     finish = false
     pages = start_page.upto(start_page+80)
@@ -82,7 +82,7 @@ class BCTalkParserAdv
       end
 
     end
-    DB[:forums_stat].insert({fid:fid, bot_action:"---save_thread_responses_statistics ---hours_back:#{hours}" , bot_parsed: date_now})
+    DB[:forums_stat].insert({fid:fid, bot_action:"---save_thread_responses_statistics ---hours_back:#{hours_to_past}" , bot_parsed: date_now})
 
   end
 

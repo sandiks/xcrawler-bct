@@ -36,9 +36,9 @@ class BCTalkParserHelper
           fid = href.split('=').last.to_i
           fname = "forum_#{fid}"
 
-          puts subforums << {fid:fid, siteid:SID, title:ftitle, level:1,parent_fid: parent_fid, name:fname } if fid!=0
+          puts subforums << {fid:fid, title:ftitle, level:1,parent_fid: parent_fid, name:fname } if fid!=0
 
-          Repo.insert_forums(subforums,SID) if @@need_save
+          Repo.insert_forums(subforums) if @@need_save
         end
       end
 

@@ -40,14 +40,14 @@ def show_responses_and_ranks_for_thread(fid,tid)
   threads_titles = DB[:threads].filter(fid:fid).to_hash(:tid, :title)
 
 
-  forum_stat = DB[:forums_stat].filter(Sequel.lit("sid=? and fid=? and bot_parsed > ?", SID,fid,from))
+  forum_stat = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from))
   .select_map(:bot_parsed)
 
   parsed_forum_date_min = forum_stat.min.to_datetime
   p "parsed_forum_date_min #{parsed_forum_date_min.strftime("%F %k:%M ")}"
 
   ##--------
-  threads_stat = DB[:threads_responses].filter(Sequel.lit("sid=? and fid=? and last_post_date > ?", SID,fid, parsed_forum_date_min))
+  threads_stat = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, parsed_forum_date_min))
   .select_map([:tid,:responses,:last_post_date])
 
 

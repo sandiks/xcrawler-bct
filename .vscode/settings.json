@@ -1,2 +1,15 @@
 {
+    "sqltools.connections": [
+        {
+            "askForPassword": true,
+            "database": "bittalk",
+            "dialect": "MySQL",
+            "isActive": false,
+            "isConnected": false,
+            "name": "mysql",
+            "port": 3306,
+            "server": "localhost",
+            "username": "root"
+        }
+    ]
 }
