@@ -1,4 +1,5 @@
 require 'sequel'
+require 'logger'
 require_relative  'page_utils'
 
 Sequel.datetime_class = DateTime
@@ -7,6 +8,7 @@ class Repo
 
   DB = Sequel.connect('postgres://btuser:test123@localhost:5432/bittalk')
   #DB = Sequel.connect(:adapter => 'mysql2',:host => 'localhost',:database => 'bittalk',:user => 'root')
+  #DB.loggers << Logger.new($stdout)
 
   def self.get_db
     DB

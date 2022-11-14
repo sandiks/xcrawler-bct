@@ -86,26 +86,8 @@ class BCTalkParserAdv
 
   end
 
-
-  def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24, threads_num=20)
-
-    from=date_now(hours_back)
-
-    #p DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).sql
-
-    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
-    .select_map([:tid,:responses,:last_post_date])
-
-    sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
-    .select{|tid,v| v.size>1 && v.all?{|tt| tt[1] <300 } }
-    .map{ |tid, vv| dd=vv.map{ |el| el[1]  }.minmax;  [tid, dd.last-dd.first] }
-    .sort_by{ |tid_resp| -tid_resp[1] }
-    .take(threads_num)
-
-  end
-
   def self.load_posts_for_max_responses_threads_in_interval(fid, hours_back =24, threads_num=80)
-    p "[start] load_posts_for_max_responses_threads_in_interval fid: #{fid} hours_back: #{hours_back} threads_num: #{threads_num}"
+    p "[load_posts_for_max_responses_threads_in_interval] fid: #{fid} hours_back: #{hours_back} threads_num: #{threads_num}"
 
     from=date_now(hours_back)
     to=date_now(0)
@@ -115,17 +97,15 @@ class BCTalkParserAdv
     parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from))
     .all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }.join(', ')
 
-    p "[start] parsed_dates:#{parsed_dates} FORUM: #{fid} #{title}"
+    p "[load_posts_for_max_responses_threads_in_interval] --parsed_dates:#{parsed_dates} FORUM: #{fid} #{title}"
 
-    tid_list = nil
-    unless tid_list
-      tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
-    end
+    tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
+    p "[calc_tid_list] tid_list:#{tid_list}"
 
     only_3_Pages = threads_num>30
     indx=0
 
-    tid_list.each do |tid,resps_diff|
+    tid_list.each do |tid, resps_diff|
 
       #next if tid!=2675213
       indx+=1;
@@ -149,6 +129,22 @@ class BCTalkParserAdv
 
   end
 
+    def self.calc_tid_list_for__report_response_statistic(fid, hours_back =24, threads_num=20)
+
+    from=date_now(hours_back)
+
+    #p DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).sql
+
+    threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
+    .select_map([:tid,:responses,:last_post_date])
+
+    sorted_thread_stats = threads_responses.group_by{|dd| dd[0]}
+    .select{|tid,v| v.size>1 && v.all?{|tt| tt[1] <300 } }
+    .map{ |tid, vv| dd=vv.map{ |el| el[1]  }.minmax;  [tid, dd.last-dd.first] }
+    .sort_by{ |tid_resp| -tid_resp[1] }
+    .take(threads_num)
+
+  end
 
   def self.load_thread_pages_before_date(fid, tid, hours_back=12, responses=0, load_only_last_3Pages = true )
 
