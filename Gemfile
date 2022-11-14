@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
-#gem 'pg'
-gem 'mysql2'
+gem 'pg'
+#gem 'mysql2'
 gem 'sequel'
 gem 'parallel'
 
@@ -11,3 +11,4 @@ gem 'socksify'
 gem 'mechanize'
 gem 'rufus-scheduler'
 gem "dotenv"
+gem "solargraph"

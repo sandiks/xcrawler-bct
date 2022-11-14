@@ -1,5 +1,6 @@
 require 'sequel'
 require_relative  'socksify_mechanize'
+require 'open-uri'
 
 class Time
   def to_datetime
@@ -54,9 +55,10 @@ def download_page(url, direct = true)#win1251, utf-8, ISO-8859-1
     if encoding == "win1251"
       downl_win1251(url, headers)
     elsif encoding == "ISO-8859-1"
-      open(url,headers).read
+      open(url, **headers).read
     else
-      open(url,headers).read
+      #open(url).read
+      URI.open(url, headers)
     end
 
   end

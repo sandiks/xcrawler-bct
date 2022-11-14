@@ -48,24 +48,24 @@ class BCTalkParserAdv
 
     parsed_dates = DB[:forums_stat].filter(fid:fid).reverse_order(:bot_parsed).limit(2).select_map(:bot_parsed)
     last_parsed_date =  parsed_dates.first.to_datetime rescue date_now(24)
-    
+
     if last_parsed_date > date_now(6)
-      p "---!!! already parsed 6 hours ago#{last_parsed_date.strftime("%F %H:%M:%S")}"
+      p "[save_thread_responses_statistics] already parsed 6 hours ago#{last_parsed_date.strftime("%F %H:%M:%S")}"
       return
     end
 
     parsed_dates_text = parsed_dates.map { |dd| dd.strftime("%F %H:%M:%S") }
-    
-    p "----------(#{fid}) #{forum_title}   --hours:#{hours_to_past} --last_parsed: #{parsed_dates_text}"
+
+    p "[save_thread_responses_statistics] #{fid}:#{forum_title}  --hours:#{hours_to_past} --last_parsed: #{parsed_dates_text}"
 
     last_page_date = date_now
     #BCTalkParser.from_date = date_now(hours_to_past)
 
     finish = false
     pages = start_page.upto(start_page+80)
-    
-    #pages.each do |pg|
-    Parallel.map(pages,:in_threads=>3) do |pg|
+
+    pages.each do |pg|
+    #Parallel.map(pages,:in_threads=>3) do |pg|
 
       next if finish
       next if pg<1
@@ -92,7 +92,7 @@ class BCTalkParserAdv
     from=date_now(hours_back)
 
     #p DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).sql
-    
+
     threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
     .select_map([:tid,:responses,:last_post_date])
 
@@ -116,7 +116,7 @@ class BCTalkParserAdv
     .all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }.join(', ')
 
     p "[start] parsed_dates:#{parsed_dates} FORUM: #{fid} #{title}"
-    
+
     tid_list = nil
     unless tid_list
       tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
@@ -126,12 +126,12 @@ class BCTalkParserAdv
     indx=0
 
     tid_list.each do |tid,resps_diff|
-      
+
       #next if tid!=2675213
-      indx+=1; 
+      indx+=1;
       p "--[#{indx}] tid: #{tid} resp_diff: #{resps_diff}"
 
-      dd =load_thread_pages_before_date(fid,tid, hours_back, 0, only_3_Pages)
+      dd = load_thread_pages_before_date(fid,tid, hours_back, 0, only_3_Pages)
       #sleep(1)
 
     end
@@ -151,7 +151,7 @@ class BCTalkParserAdv
 
 
   def self.load_thread_pages_before_date(fid, tid, hours_back=12, responses=0, load_only_last_3Pages = true )
-    
+
     from = date_now(hours_back)
     to=date_now(0)
 
@@ -162,7 +162,7 @@ class BCTalkParserAdv
       responses = threads_responses[:responses]
       fid = threads_responses[:fid]
     end
-    thread_rec = DB[:threads].filter(tid: tid).first 
+    thread_rec = DB[:threads].filter(tid: tid).first
     thread_title = thread_rec[:title] rescue ""
     old_reliable = thread_rec[:reliable] rescue 0
 
@@ -184,7 +184,7 @@ class BCTalkParserAdv
     thread_start_date = date_now(7*24)
 
     finished_downl_pages=[]
-    
+
     downl_pages.each do |downloaded_thread_page|
 
       break if break_downl_thread
@@ -194,7 +194,7 @@ class BCTalkParserAdv
       loop do
         begin
 
-          #prevent from infinite looping 
+          #prevent from infinite looping
           loop_count+=1
           if loop_count>3
             break_downl_thread = true
@@ -204,16 +204,16 @@ class BCTalkParserAdv
           data = parse_page_and_save_to_tpage_ranks(tid, downloaded_thread_page[0]) ##  save only user ranks
 
           #p "---- tid #{tid} pg #{downloaded_thread_page[0]} fp_date #{data[:first_post_date].strftime("%F %H:%M")}"
-          
+
           finished_downl_pages<<downloaded_thread_page[0]
 
           ranks_stat= data[:stat].group_by{|x| x}.map{|k,vv| [k,vv.size]}.to_h
           [1,2,3,4,5,11].each{|x| all_ranks_stat[x]+= (ranks_stat[x]||0)}
-          
+
           break_downl_thread =  data[:first_post_date] < thread_start_date
-          
-          if load_only_last_3Pages 
-            if downloaded_thread_page[0]==1 || finished_downl_pages.size>=3 
+
+          if load_only_last_3Pages
+            if downloaded_thread_page[0]==1 || finished_downl_pages.size>=3
               break_downl_thread = true
             end
 
@@ -236,52 +236,52 @@ class BCTalkParserAdv
     downloaded_pages_str = finished_downl_pages #downl_pages.map { |pp| "#{pp[0]}_#{pp[1]}" }.join(' ')
     is_saved=false
     reliable =0
-    
-    if  all_ranks_stat && finished_downl_pages.size>0      
+
+    if  all_ranks_stat && finished_downl_pages.size>0
       dd=[all_ranks_stat[1],all_ranks_stat[2],all_ranks_stat[3],
       all_ranks_stat[4], all_ranks_stat[5], all_ranks_stat[11]]
 
-      reliable = calc_reliability(all_ranks_stat)     
+      reliable = calc_reliability(all_ranks_stat)
 
       if all_ranks_stat.values.sum>10
         is_saved=true
-        DB[:threads].filter(tid: tid).update(reliable: reliable) 
+        DB[:threads].filter(tid: tid).update(reliable: reliable)
       end
     end
 
     planned_str=downl_pages.map { |pp| "#{pp[0]}" }.join(' ')
-    
+
     saved = is_saved ? "saved" : "saved_no"
     reliable_info = "old: #{'%0.2f' % (old_reliable||0)} curr: #{'%0.2f' % (reliable||0)}"
 
     p "#{thread_title}"
 
-    if downl_pages.size>0 
+    if downl_pages.size>0
       p "--LOADED #{tid} last_pg(count): #{page_and_num[0]}(#{page_and_num[1]})".ljust(43)+
       "down_pages:#{finished_downl_pages} ranks_stat: #{dd} #{saved} #{reliable_info}"
     else
       tpages = DB[:tpage_ranks].filter(tid:tid).select_map([:page, :postcount]).last(3)
       p "--NO LOADED #{tid} responses: #{responses}, db_pages: #{tpages}"
     end
-    p "----------------------"    
-    
+    p "----------------------"
+
     all_ranks_stat
   end
 
   def self.calc_reliability(all_ranks_stat)
-    
-      responses = 0 
+
+      responses = 0
       all_ranks_stat.each{|k,v| responses+=v}
       sum = responses*6
 
       points = all_ranks_stat[1]+all_ranks_stat[2]*2+all_ranks_stat[3]*3+all_ranks_stat[4]*4+all_ranks_stat[5]*5+all_ranks_stat[11]*6
-      reliable = points/sum.to_f     
-  end  
+      reliable = points/sum.to_f
+  end
 
   def self.calc_arr_downl_pages(tid, lp_num, lp_post_count, start_date)
     downl_pages=[]
     tpages = DB[:tpage_ranks].filter(tid:tid).to_hash(:page,[:postcount,:fp_date])
-    
+
     need_downl_preLast_pages=true
 
     mc0=0
@@ -297,7 +297,7 @@ class BCTalkParserAdv
 
       (lp_num-1).downto(lp_num-100) do |pg|
         break if pg<1
-        
+
         post_count=0
         lp_date=nil
         if tpages[pg]
@@ -306,7 +306,7 @@ class BCTalkParserAdv
           date_is_out = lp_date && lp_date.to_datetime< start_date
         end
 
-        downl_pages<<[pg, post_count, lp_date] if post_count!=THREAD_PAGE_SIZE 
+        downl_pages<<[pg, post_count, lp_date] if post_count!=THREAD_PAGE_SIZE
         break if date_is_out
       end
     end
@@ -347,7 +347,7 @@ class BCTalkParserAdv
   def self.parse_page_and_save_to_tpage_ranks(tid, page)
 
     return if page<1
-    
+
     link = get_link(tid,page)
     fname = "html/bctalk-tid#{tid}-p#{page}.html"
     page_html = Nokogiri::HTML(download_page(link))
@@ -393,7 +393,7 @@ class BCTalkParserAdv
             if ['bitcointalk.org','goo.gl'].include?(url)
               url = link.sub(/^https?\:\/\/(www.)?/,'')
             end
-            url            
+            url
           rescue
             dmn = link.sub(/^https?\:\/\/(www.)?/,'').split('/').first
             dmn ? dmn.strip : "bitcointalk.org/error"
@@ -403,12 +403,12 @@ class BCTalkParserAdv
         domains = grouped_domains
         .sort_by{|k,v| ['bitcointalk.org','goo.gl','bit.ly','www'].include?(k) ? 0 : -v.size}
         .map { |k,v| v.size>1 ? k : v.map{ |ll| ll['href'].sub(/^https?\:\/\/(www.)?/,'') }.join('|') }
-        
+
         kk = domains.first
         #p "bounty:  #{kk}".ljust(60)+"#{addedby}"
-        
-        if kk && !kk.strip.empty? 
-          bounties[kk] = { name:kk, descr: domains.join('|')} if !bounties.has_key?(kk) 
+
+        if kk && !kk.strip.empty?
+          bounties[kk] = { name:kk, descr: domains.join('|')} if !bounties.has_key?(kk)
           @@users_bounty[addeduid] = {uid:addeduid, bo_name:kk} if !@@users_bounty.has_key?(addeduid)
         end
       end
@@ -431,25 +431,25 @@ class BCTalkParserAdv
     first_post_date = posts.first[:addeddate]
 
     grouped_ranks = page_ranks.group_by{|r| r}.map{|r, pp| ["r#{r}", pp.size]}.to_h
-   
- 
+
+
     Repo.insert_or_update_tpage_ranks(tid, page, posts.size, first_post_date, grouped_ranks)
-    
-    {first_post_date:first_post_date, stat:page_ranks} 
+
+    {first_post_date:first_post_date, stat:page_ranks}
 
   end
 
 
   def self.check_on_corrected_tpages(tid, lpage)
     tpages = DB[:tpages].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount,:fp_date])
-    
+
     if tpages[lpage+1]
-      
+
       bad_page = lpage+1
       max= tpages.keys.max
       need_delete=[]
-      (bad_page..max).each do |pp| 
-        need_delete << pp if tpages[pp] 
+      (bad_page..max).each do |pp|
+        need_delete << pp if tpages[pp]
       end
       max_post_pnum = DB[:posts].filter(tid:tid).max(:pnum)
       p need_delete+= (max_post_pnum..lpage).to_a
@@ -470,8 +470,8 @@ class BCTalkParserAdv
 
     indx=0
     out = []
-    
-    unless tid_list 
+
+    unless tid_list
       tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back)
     end
 
@@ -483,22 +483,22 @@ class BCTalkParserAdv
       ## calc reliable
 
       ranks = DB[:tpage_ranks].filter( Sequel.lit("(tid=? and fp_date > ?)", tid, from) ).select_map([:r1,:r2,:r3,:r4,:r5,:r11])
-      
+
       all_ranks = [0,0,0,0,0,0,0]
       arr_ranks =[]
       ranks.each do |arr|
         arr_ranks<< arr
-        6.times {|t| all_ranks[t+1] += arr[t] } 
+        6.times {|t| all_ranks[t+1] += arr[t] }
       end
 
 
       points = all_ranks[1]+all_ranks[2]+all_ranks[3]*2+all_ranks[4]*4+all_ranks[5]*5+all_ranks[6]*6
-      
+
       sum = all_ranks.sum*6
       #p "tid #{tid} points #{points} sum #{sum}"
       next if sum ==0
-      
-      reliable_ff = points/sum.to_f     
+
+      reliable_ff = points/sum.to_f
 
       if sum>36
         if threads_attr[tid]
@@ -506,7 +506,7 @@ class BCTalkParserAdv
         else
           thr_title_cleaned = tid
         end
-        
+
         title = "[b]#{thr_title_cleaned}[/b]"
         stat="tid: #{tid} ff: #{'%0.2f' % reliable_ff} points #{points} sum #{sum} ranks #{all_ranks} "
         DB[:threads].filter(tid: tid).update(reliable: reliable_ff)
@@ -537,8 +537,8 @@ class BCTalkParserAdv
       lcount = page_and_num[1]
 
       list_page_num= [[lpage,lcount]]
-      list_page_num<<[lpage-1,20] if lcount<5 
-    
+      list_page_num<<[lpage-1,20] if lcount<5
+
       ##donwload pages
       list_page_num.each do |page_num, size|
         if tpages[page_num].nil? || tpages[page_num]<size
@@ -546,11 +546,11 @@ class BCTalkParserAdv
           BCTalkParser.set_opt({rank:downl_rank}).parse_thread_page(tid, page_num)
         else
           p "---exist page tid pg [#{tid} #{page_num}] resps: #{responses}"
-        end 
+        end
 
     end
 
-  end  
+  end
 
 
   def self.load_unreliable_threads(fid) ## for site, show when you click 'post' button
@@ -566,7 +566,7 @@ class BCTalkParserAdv
         load_thread_before_date(tid,12)
       end
 
-  end  
+  end
 ##end of class
 end
-    
+

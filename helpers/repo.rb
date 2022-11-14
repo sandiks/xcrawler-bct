@@ -5,8 +5,8 @@ Sequel.datetime_class = DateTime
 
 class Repo
 
-  #DB = Sequel.connect('postgres://postgres:12345@localhost:5432/fbot')
-  DB = Sequel.connect(:adapter => 'mysql2',:host => 'localhost',:database => 'bittalk',:user => 'root')
+  DB = Sequel.connect('postgres://btuser:test123@localhost:5432/bittalk')
+  #DB = Sequel.connect(:adapter => 'mysql2',:host => 'localhost',:database => 'bittalk',:user => 'root')
 
   def self.get_db
     DB
@@ -108,7 +108,7 @@ class Repo
       exist = DB[:threads].map(:tid)
 
       threads.each do |thr|
-        
+
         begin
           if not exist.include? thr[:tid]
             DB[:threads].insert(thr)
@@ -167,14 +167,20 @@ class Repo
       forum_page_threads.each do |tt|
 
         if true #exist[tt[:tid]] != tt[:responses]
+          tid=tt[:tid]
           dd=DateTime.now.new_offset(0/24.0)
           day= dd.day
           hour= dd.hour
 
-          rr = {fid:tt[:fid], tid:tt[:tid], responses:tt[:responses],
+          rr = {fid:tt[:fid], tid: tid, responses:tt[:responses],
             last_post_date:tt[:updated], parsed_at:dd, day:day, hour:hour}
 
-          DB[:threads_responses].insert(rr)
+          rr = DB[:threads_responses].where({ tid: tid, last_post_date:tt[:updated] })
+          # update record
+          upd = rr.update({responses: tt[:responses], parsed_at: dd, day: day, hour: hour})
+          if 1 != upd
+            DB[:threads_responses].insert(rr)
+          end
 
           inserted+=1
 
@@ -308,15 +314,15 @@ class Repo
             count+=1
           else
             rec = DB[:bct_bounty].filter(name:bb[:name]).first
-            rec.update(descr: bb[:descr]) if bb[:descr].size>rec[:descr].size 
-          end        
+            rec.update(descr: bb[:descr]) if bb[:descr].size>rec[:descr].size
+          end
         rescue =>ex
           puts "[error-save-bounty name:#{bb[:name]}] #{ex.class}"
         end
       end
     end #end trans
     count
-  end  
+  end
 
   def self.save_user_bounty(user_bounties ,sid=9)
 
@@ -328,19 +334,19 @@ class Repo
       user_bounties.each do |bb|
         uid= bb[:uid]
         bounty_name = bb[:bo_name]
-        
+
         begin
           if db_user_bounties[uid] != bounty_name
             DB[:bct_user_bounty].insert(bb.merge({created_at:DateTime.now.new_offset(3/24.0)}))
             count+=1
-          end        
+          end
         rescue =>ex
           puts "[error-save-user-bounty bo_name:#{bb[:bo_name]}] #{ex.class}"
         end
       end
     end #end trans
     count
-  end  
+  end
 
   def self.get_tpages(tid,sid=0)
     DB[:tpages].filter(tid:tid).to_hash(:page,:postcount)
@@ -392,11 +398,11 @@ class Repo
 
     #update table[tpages] with post count on page
     rec = DB[:tpages].where({tid:tid, page:page })
-    
+
     #p "update tpage #{rec.sql}"
     upd =rec.update({postcount:count,fp_date: first_post_date})
 
-    if 1 != upd 
+    if 1 != upd
       DB[:tpages].insert({tid:tid, page:page, postcount:count, fp_date: first_post_date})
     end
   end
@@ -404,12 +410,12 @@ class Repo
   def self.insert_or_update_tpage_ranks(tid, page, count, first_post_date, grouped_ranks)
     return if page<1
 
-    rec = DB[:tpage_ranks].where({ tid:tid, page:page })    
+    rec = DB[:tpage_ranks].where({ tid:tid, page:page })
     #p "update tpage #{rec.sql}"
     upd =rec.update({postcount:count,fp_date: first_post_date}.merge(grouped_ranks))
-    if 1 != upd 
+    if 1 != upd
       DB[:tpage_ranks].insert({tid:tid, page:page, postcount:count, fp_date: first_post_date}.merge(grouped_ranks))
     end
-  end  
+  end
 
 end

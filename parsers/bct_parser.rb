@@ -22,7 +22,7 @@ class BCTalkParser
   def self.set_opt(opts={}); @@options = opts; return self; end
   def self.set_from_date(h_back=24); @@from_date = date_now(h_back); return self; end
   def self.date_now(hours=0); DateTime.now.new_offset(0/24.0)-hours/24.0; end
-  
+
   def self.from_date
       @@from_date
   end
@@ -73,28 +73,28 @@ class BCTalkParser
     end
 
     last_date =page_threads.last[:updated]
-        
+
     ## save/update threads
     Repo.insert_or_update_threads_for_forum(page_threads)
-    
-    ## save statistics 
+
+    ## save statistics
     inserted = 0
     inserted = Repo.insert_into_threads_responses(fid, page_threads)
-    
+
     p "[parse_forum] fid-pg: #{fid}-#{pg} last_date: #{last_date.strftime('%F %H:%M:%S')}"
 
     if download_thread_pages
       old_thread_resps = DB[:threads].filter(fid: fid).to_hash(:tid,:responses)
-      
+
       load_page_threads_posts(fid, page_threads, old_thread_resps)
     end
 
-    #return nil if inserted ==0 
+    #return nil if inserted ==0
     return last_date
   end
 
   def self.load_page_threads_posts(fid, page_threads, old_thread_resps)
-  
+
     Parallel.map_with_index(page_threads,:in_threads=>2) do |thr,idx|
     #page_threads.each do |thr|
       tid = thr[:tid]
@@ -108,29 +108,29 @@ class BCTalkParser
 
       #old_resps = old_thread_resps[tid]
 
-##calc how many pages_back neeed download for current thread 
+##calc how many pages_back neeed download for current thread
       downloaded_pages=calc_arr_downl_pages(tid,lpage,lcount,@@from_date).take(5)
 
       res=[]
       stars=0
-      downloaded_pages.each do |pp|   
+      downloaded_pages.each do |pp|
         res<<pp[0]
-        
+
         loop do
           begin
             ## load page with post for [tid,pg]
-            data = parse_thread_page(tid, pp[0]) 
+            data = parse_thread_page(tid, pp[0])
             stars += data[:stars]||0
             break
 
-          rescue=>ex 
+          rescue=>ex
             puts "#{idx} !!!load_forum_threads [#{tid}.#{pp[0]}] #{ex.class} "
             #File.open('BCT_THREADS_ERRORS', 'a') { |f| f.write("#{tid} #{pp[0]}\n") }
-            sleep 2 
+            sleep 2
           end
         end
 
-      end      
+      end
       planned_str=downloaded_pages.map { |pp| "#{pp[0]}" }.join(' ')
 
       p "[#{idx} load_thr #{tid} last:#{page_and_num}".ljust(40)+
@@ -151,7 +151,7 @@ class BCTalkParser
     downl_pages=[]
 
     tpages = DB[:tpages].filter(Sequel.lit("tid=?", tid)).to_hash(:page,[:postcount,:fp_date])
-    
+
     #p tpages.map { |k,v| "[#{k},#{v[0]}]"  }
     #last thread page
     need_downl_preLast_pages=true
@@ -169,7 +169,7 @@ class BCTalkParser
 
       (lp_num-1).downto(lp_num-30) do |pg|
         break if pg<1
-        
+
         post_count=0
         lp_date=nil
         if tpages[pg]
@@ -178,14 +178,14 @@ class BCTalkParser
           date_is_out = lp_date && lp_date.to_datetime< start_date
         end
 
-        downl_pages<<[pg, post_count, lp_date] if post_count!=THREAD_PAGE_SIZE 
+        downl_pages<<[pg, post_count, lp_date] if post_count!=THREAD_PAGE_SIZE
         break if date_is_out
       end
     end
 
     downl_pages
   end
-  
+
   def self.get_link(tid, page=1)
     pp = (page>1 ? "#{(page-1)*THREAD_PAGE_SIZE}" : "0")
     link = "https://bitcointalk.org/index.php?topic=#{tid}.#{pp}"
@@ -193,11 +193,11 @@ class BCTalkParser
 
   def self.parse_thread_page(tid, page=1)
     return if page<1
-    
+
     link = get_link(tid,page)
     fname = "html/bctalk-tid#{tid}-p#{page}.html"
     page_html = Nokogiri::HTML(download_page(link))
-    
+
     #File.write(fname, page_html)
     #page_html = Nokogiri::HTML(File.open(fname)) if File.exist?(fname)
 
@@ -255,7 +255,7 @@ class BCTalkParser
         grouped_domains = links.group_by do |ll|
           link = ll['href'].gsub(' ','').strip
           begin
-            URI.parse( link ).host.split('.').last(2).join('.') 
+            URI.parse( link ).host.split('.').last(2).join('.')
           rescue
             dmn = link.sub(/^https?\:\/\/(www.)?/,'').split('/').first
             dmn ? dmn.strip : "bitcointalk.org/error"
@@ -265,12 +265,12 @@ class BCTalkParser
         domains = grouped_domains
         .sort_by{|k,v| k.include?("bitcointalk.org") ? 0 : -v.size}
         .map { |k,v| v.size>1 ? k : v.map{ |ll| ll['href'].sub(/^https?\:\/\/(www.)?/,'') }.join('|') }
-        
+
         kk = domains.first
         #p "bounty:  #{kk}".ljust(60)+"#{addedby}"
-        
-        if kk && !kk.strip.empty? 
-          bounties[kk] = { name:kk, descr: domains.join('|')} if !bounties.has_key?(kk) 
+
+        if kk && !kk.strip.empty?
+          bounties[kk] = { name:kk, descr: domains.join('|')} if !bounties.has_key?(kk)
           user_bounty[addeduid] = {uid:addeduid, bo_name:kk} if !user_bounty.has_key?(addeduid)
         end
       end
@@ -321,8 +321,8 @@ class BCTalkParser
     end
     #p "[ parse_thread_page_html] tid:#{tid} pg:#{page} first:#{first_date.strftime("%F %H:%M")}"
 
-    #{first_post_date: first_post_date} 
-    {stars: more3stars, first_post_date:first_post_date, stat:users_ranks_stat} 
+    #{first_post_date: first_post_date}
+    {stars: more3stars, first_post_date:first_post_date, stat:users_ranks_stat}
   end
 
   ##11-legendary
@@ -334,7 +334,7 @@ class BCTalkParser
   end
 
   def self.parse_post_date(date_str)
-   
+
     now = date_now
 
     date = DateTime.parse(date_str) rescue DateTime.new(1900,1,1) #.new_offset(3/24.0)
@@ -346,12 +346,12 @@ class BCTalkParser
 
     ptext.css('div.quoteheader').each do |el|
       if el.css("a").size>0
-        href=el.css("a")[0]['href'] 
+        href=el.css("a")[0]['href']
         th_m = href.split("topic=").last.scan(/\d+/)
-        nnode = "[q #{th_m[0]}.#{th_m[1]}]" 
+        nnode = "[q #{th_m[0]}.#{th_m[1]}]"
         el.add_next_sibling nnode
       end
-    end 
+    end
 
     ptext.css("div.quoteheader").remove
     ptext.css("div.quote").remove
