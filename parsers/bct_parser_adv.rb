@@ -51,7 +51,7 @@ class BCTalkParserAdv
 
     if last_parsed_date > date_now(6)
       p "[save_thread_responses_statistics] already parsed 6 hours ago#{last_parsed_date.strftime("%F %H:%M:%S")}"
-      return
+      #return
     end
 
     parsed_dates_text = parsed_dates.map { |dd| dd.strftime("%F %H:%M:%S") }
@@ -97,7 +97,7 @@ class BCTalkParserAdv
     parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from))
     .all.map { |dd| dd[:bot_parsed].strftime("%F %H:%M:%S") }.join(', ')
 
-    p "[load_posts_for_max_responses_threads_in_interval] --parsed_dates:#{parsed_dates} FORUM: #{fid} #{title}"
+    p "[load_posts_for_max_responses_threads_in_interval] --parsed_dates: #{parsed_dates} FORUM: #{fid} #{title}"
 
     tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
     p "[calc_tid_list] tid_list:#{tid_list}"
@@ -133,7 +133,7 @@ class BCTalkParserAdv
 
     from=date_now(hours_back)
 
-    #p DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).sql
+    p DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from)).sql
 
     threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
     .select_map([:tid,:responses,:last_post_date])

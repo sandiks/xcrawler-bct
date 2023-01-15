@@ -32,11 +32,11 @@ end
 
 def load_calc_report(fid)
   p "-----calc 159(Announcements), 240(Tokens), 67(altcoin Discussion)"
-  hours = 12 * 24
+  hours = 7 * 24
 
-  BCTalkParserAdv.save_thread_responses_statistics(fid, 24*4)
+  BCTalkParserAdv.save_thread_responses_statistics(fid, hours)
+  BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid, hours, 160)
 
-  BCTalkParserAdv.load_posts_for_max_responses_threads_in_interval(fid, hours, 80)
   BctThreadsReport.report_response_statistic(fid, hours, 20, true)
   #BctUsersReport.report_users_sorted_by_merit_for_day(fid, hours)
 

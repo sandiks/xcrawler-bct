@@ -129,7 +129,7 @@ class Repo
     count
   end
 
-  def self.insert_or_update_threads_for_forum(threads,sid=0, full_update=true)
+  def self.insert_or_update_forum_threads(threads,sid=0, full_update=true)
 
     count=0
     DB.transaction do
@@ -168,28 +168,23 @@ class Repo
 
       forum_page_threads.each do |tt|
 
-        if true #exist[tt[:tid]] != tt[:responses]
-          tid=tt[:tid]
-          dd=DateTime.now.new_offset(0/24.0)
-          day= dd.day
-          hour= dd.hour
+        tid=tt[:tid]
+        dd=DateTime.now.new_offset(0/24.0)
+        day= dd.day
+        hour= dd.hour
 
-          rr = {fid:tt[:fid], tid: tid, responses:tt[:responses],
-            last_post_date:tt[:updated], parsed_at:dd, day:day, hour:hour}
+        rr = {fid:tt[:fid], tid: tid, responses:tt[:responses], last_post_date:tt[:updated],
+              parsed_at:dd, day:day, hour:hour}
 
-          rr = DB[:threads_responses].where({ tid: tid, last_post_date:tt[:updated] })
-          # update record
-          upd = rr.update({responses: tt[:responses], parsed_at: dd, day: day, hour: hour})
-          if 1 != upd
-            DB[:threads_responses].insert(rr)
-          end
-
-          inserted+=1
-
-        else
-          #p "#{tt[:tid]} exist with same responses #{tt[:responses]}"
+        rec = DB[:threads_responses].where({ tid: tid, last_post_date:tt[:updated] })
+        upd = rec.update({responses: tt[:responses], parsed_at: dd, day: day, hour: hour})
+        if 1 != upd
+          #p "insert #{tid} responses:#{tt[:responses]}"
+          DB[:threads_responses].insert(rr)
         end
+        inserted+=1
       end
+
     end
     inserted
   end

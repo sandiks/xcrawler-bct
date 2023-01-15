@@ -31,7 +31,7 @@ class BctThreadsReport
     unreliable_threads = []
     #unreliable_threads = DB[:threads].filter(Sequel.lit("fid=? and reliable<0.3",fid)).select_map(:tid)
     #if unreliable_threads.any?  Sequel.lit("fid=? and last_post_date > ? and tid not in ?",fid, from, unreliable_threads)
-    
+
     threads_responses = DB[:threads_responses].filter(Sequel.lit("fid=? and last_post_date > ?",fid, from))
     .select_map([:tid,:responses,:last_post_date])
 
@@ -51,37 +51,41 @@ class BctThreadsReport
     ##generate
 
     indx=0
-    
+
     tid_list = calc_tid_list_for__report_response_statistic(fid, hours_back, threads_num)
     .map{|k,vv| dd=vv.map { |el| el[1]  }.minmax;  [k, dd.last-dd.first, dd.last] }
 
     topics=[]
-    tid_list.each do |tid, diff_responses, last_responses_num|
-    
+    tid_list.each do |tid, responses_diff, last_responses_num|
+
       indx+=1
       thread = DB[:threads].first(tid: tid)
-      reliable= thread[:reliable]||0
+      next if thread.nil?
+      reliable = thread[:reliable]||0
+
       thr_title = thread[:title].gsub('??','')
       last_responses_num = thread[:responses]
       #next if tid!=421615
- 
+
       #####calculate last page for max number of responses
 
       page_and_num = PageUtil.calc_last_page(last_responses_num+1,20)
       last_page = (page_and_num[0]-1)*20 rescue 0
       url = "https://bitcointalk.org/index.php?topic=#{tid}.#{last_page}"
 
-      thr_title = itd unless thr_title    
+      thr_title = tid unless thr_title
       url = "#{url} [b]#{thr_title}[/b]"
-      topics <<{reliable: reliable, responses:diff_responses, url: url}
+      topics <<{reliable: reliable, responses: responses_diff, url: url}
 
     end
 
     from=date_now(hours_back)
-    parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from)).order(:bot_parsed).select_map(:bot_parsed)
+    parsed_dates = DB[:forums_stat].filter(Sequel.lit("fid=? and bot_parsed > ?",fid, from))
+      .order(:bot_parsed).select_map(:bot_parsed)
+    parsed_dates_list = parsed_dates.map{ |d| d.strftime("%F %H:%M")}
 
-    p "[start]  ---report_response_statistic --hours_back: #{hours_back} --parsed_dates: #{parsed_dates}" 
-    
+    p "[start]  ---report_response_statistic --hours_back: #{hours_back} --parsed_dates: #{parsed_dates_list}"
+
     first = parsed_dates.first
     last = parsed_dates.last
 
@@ -92,7 +96,7 @@ class BctThreadsReport
     out<<"[b]#{first.strftime("%F %H:%M")}  -  #{last.strftime("%F %H:%M")}[/b]"
     out<<"------------"
 
-    ## generate report 
+    ## generate report
     if need_sort_by_reliable
 
       topics.sort_by{|dd| -dd[:reliable]}.each do |topic|
@@ -115,7 +119,7 @@ class BctThreadsReport
   end
 
   def self.unreliable_threads(fid, hours_back =24)
-    
+
     threads_attr = DB[:threads].filter(fid:fid).to_hash(:tid, [:title,:reliable])
     unreliable_threads = threads_attr.select{ |k,v| v[1] && v[1]<0.3   }
 
@@ -123,16 +127,16 @@ class BctThreadsReport
     unreliable_titles = unreliable_threads.map{|tid,v| "tid:#{tid} #{v[0]}" }
     out = []
 
-    if false 
+    if false
       out<< "[color=red]UNRELIABLE THREADS!!![/color]"
       unreliable_threads.each do |tid,v|
         page_and_num = PageUtil.calc_last_page(v[2]+1,20)
         lpage = (page_and_num[0]-1)*20 rescue 0
         url = "https://bitcointalk.org/index.php?topic=%s.%s" % [tid, lpage]
-        out << "#{url} #{v[0].sub('[PRE]','[ PRE]')}" 
+        out << "#{url} #{v[0].sub('[PRE]','[ PRE]')}"
       end
       out<<"------------"
-    end    
+    end
   end
 
   def self.analz_thread_posts_of_users(tid, hours_back =24)

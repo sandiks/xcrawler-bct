@@ -11,4 +11,3 @@ gem 'socksify'
 gem 'mechanize'
 gem 'rufus-scheduler'
 gem "dotenv"
-gem "solargraph"
